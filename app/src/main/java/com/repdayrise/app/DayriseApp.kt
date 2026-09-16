@@ -30,6 +30,18 @@ class DayriseApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         Channels.ensure(this)
+        publishWidgetPreviewsOnce()
+    }
+
+    /** Generated widget previews (Android 15+) are rate limited, so publish once per app version. */
+    private fun publishWidgetPreviewsOnce() {
+        val prefs = getSharedPreferences("widget_previews", MODE_PRIVATE)
+        val version = runCatching { packageManager.getPackageInfo(packageName, 0).longVersionCode }.getOrDefault(0L)
+        if (prefs.getLong("published_version", -1L) == version) return
+        container.appScope.launch {
+            container.widgetUpdater.publishPreviews()
+            prefs.edit().putLong("published_version", version).apply()
+        }
     }
 }
 

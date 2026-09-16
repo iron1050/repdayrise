@@ -349,7 +349,7 @@ fun HallOfFameScreen(viewModel: HallOfFameViewModel, onBack: () -> Unit, onOpenH
                 }
             }
             entries.forEach { e ->
-                GlowCard(glow = HabitColors.of(e.habit.colorIndex), modifier = Modifier.padding(vertical = 5.dp).clickable { onOpenHabit(e.habit.id) }) {
+                GlowCard(glow = HabitColors.of(e.habit.colorIndex), modifier = Modifier.padding(vertical = 5.dp), onClick = { onOpenHabit(e.habit.id) }) {
                     Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconBadge(HabitIcons[e.habit.icon], HabitColors.of(e.habit.colorIndex), filled = true)
                         Spacer(Modifier.width(14.dp))

@@ -33,12 +33,15 @@ import com.repdayrise.app.ui.settings.SettingsScreen
 import com.repdayrise.app.ui.settings.SettingsViewModel
 
 @Composable
-fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, onPendingConsumed: () -> Unit) {
+fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistory: Boolean = false, onPendingConsumed: () -> Unit) {
     val backStack = rememberNavBackStack(HomeRoute)
 
-    LaunchedEffect(pendingHabitId) {
+    LaunchedEffect(pendingHabitId, pendingHistory) {
         if (pendingHabitId != null && pendingHabitId > 0) {
             backStack.add(HabitDetailRoute(pendingHabitId))
+            onPendingConsumed()
+        } else if (pendingHistory) {
+            if (backStack.lastOrNull() != HistoryRoute) backStack.add(HistoryRoute)
             onPendingConsumed()
         }
     }

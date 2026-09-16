@@ -2,6 +2,7 @@ package com.repdayrise.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -185,12 +186,14 @@ fun GlowCard(
     shape: Shape = MaterialTheme.shapes.large,
     color: Color = MaterialTheme.colorScheme.surfaceContainer,
     glow: Color? = null,
+    onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val dark = LocalIsDark.current
     Box(
         modifier
             .clip(shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(color)
             .drawBehind {
                 if (glow != null) drawCornerGlow(glow, if (dark) 0.16f else 0.10f)

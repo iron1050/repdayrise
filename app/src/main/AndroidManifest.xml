@@ -124,6 +124,28 @@
                 android:resource="@xml/sunrise_widget_info" />
         </receiver>
         <receiver
+            android:name=".widget.DashboardWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_dashboard_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/dashboard_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.RhythmWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_rhythm_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/rhythm_widget_info" />
+        </receiver>
+        <receiver
             android:name=".widget.HabitsWidgetReceiver"
             android:exported="true"
             android:label="@string/widget_habits_label">

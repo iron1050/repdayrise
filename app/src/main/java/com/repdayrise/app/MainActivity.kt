@@ -28,12 +28,14 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var pendingHabitId by mutableStateOf<Long?>(null)
+    private var pendingHistory by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pendingHabitId = intent?.getLongExtra(EXTRA_HABIT_ID, -1L)?.takeIf { it > 0 }
+        pendingHistory = intent?.getBooleanExtra(EXTRA_OPEN_HISTORY, false) == true
         val container = (application as DayriseApp).container
         var ready = false
         splash.setKeepOnScreenCondition { !ready }
@@ -54,7 +56,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 })
                             } else {
-                                DayriseNavHost(container = container, pendingHabitId = pendingHabitId, onPendingConsumed = { pendingHabitId = null })
+                                DayriseNavHost(container = container, pendingHabitId = pendingHabitId, pendingHistory = pendingHistory, onPendingConsumed = { pendingHabitId = null; pendingHistory = false })
                             }
                         }
                     }
@@ -67,6 +69,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         pendingHabitId = intent.getLongExtra(EXTRA_HABIT_ID, -1L).takeIf { it > 0 }
+        pendingHistory = intent.getBooleanExtra(EXTRA_OPEN_HISTORY, false)
     }
 
     private suspend fun addStarterHabits(container: AppContainer) {
@@ -79,5 +82,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_HABIT_ID = "extra_habit_id"
+        const val EXTRA_OPEN_HISTORY = "extra_open_history"
     }
 }

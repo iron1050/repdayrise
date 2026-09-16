@@ -205,7 +205,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
             }
             state.topHabit?.let { (habit, count) ->
                 Spacer(Modifier.height(16.dp))
-                GlowCard(glow = HabitColors.of(habit.colorIndex), modifier = Modifier.clickable { onOpenHabit(habit.id) }) {
+                GlowCard(glow = HabitColors.of(habit.colorIndex), onClick = { onOpenHabit(habit.id) }) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconBadge(HabitIcons[habit.icon], HabitColors.of(habit.colorIndex), filled = true)
                         Spacer(Modifier.width(14.dp))
