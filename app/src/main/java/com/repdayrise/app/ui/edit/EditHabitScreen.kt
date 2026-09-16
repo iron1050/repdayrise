@@ -90,6 +90,11 @@ import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.HealthSource
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.ui.components.HabitIcons
+import com.repdayrise.app.ui.components.GlassTopBar
+import com.repdayrise.app.ui.components.GlowCard
+import com.repdayrise.app.ui.components.backdropSource
+import com.repdayrise.app.ui.components.dayriseBackground
+import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.SystemBars
 import com.repdayrise.app.ui.theme.HabitColors
@@ -117,10 +122,13 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val healthLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { }
 
+    val backdrop = rememberBackdrop()
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.dayriseBackground(accent = color),
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
+                backdrop = backdrop,
                 title = { Text(if (viewModel.isNew) "New habit" else "Edit habit") },
                 navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.Rounded.Close, contentDescription = "Close") } },
                 actions = {
@@ -131,18 +139,17 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
                         shape = CircleShape,
                     ) { Text("Save") }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .backdropSource(backdrop)
                 .verticalScroll(rememberScrollState())
                 .imePadding()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 40.dp),
+                .padding(top = padding.calculateTopPadding() + 4.dp, bottom = 40.dp + padding.calculateBottomPadding()),
         ) {
             // Preview + name
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -184,7 +191,7 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
 
             // Icons
             Label("Icon")
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard {
                 LazyHorizontalGrid(
                     rows = GridCells.Fixed(3),
                     modifier = Modifier.fillMaxWidth().height(52.dp * 3 + 16.dp),
@@ -309,7 +316,7 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
                     }
                 }
                 else -> {
-                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+                    GlowCard {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("${viewModel.timesPerPeriod} ${if (viewModel.timesPerPeriod == 1) "time" else "times"} per ${if (viewModel.scheduleType == ScheduleType.WEEKLY) "week" else "month"}", style = MaterialTheme.typography.titleMedium)
@@ -342,7 +349,7 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
 
             // Reminders
             Label("Reminders")
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard {
                 Column(Modifier.padding(vertical = 4.dp)) {
                     viewModel.reminders.forEachIndexed { index, r ->
                         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -380,7 +387,7 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
 
             // Start date + note
             Label("Details")
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard {
                 Column {
                     Row(
                         Modifier.fillMaxWidth().clickable { showDatePicker = true }.padding(horizontal = 16.dp, vertical = 14.dp),

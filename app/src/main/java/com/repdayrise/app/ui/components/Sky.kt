@@ -94,10 +94,11 @@ fun DrawScope.drawSky(
     clouds: List<Cloud> = SkyAssets.clouds,
     hillFraction: Float = 0.24f,
     detail: Boolean = true,
+    sizeOverride: Size? = null,
 ) {
     val p = progress.coerceIn(0f, 1f)
-    val w = size.width
-    val h = size.height
+    val w = sizeOverride?.width ?: size.width
+    val h = sizeOverride?.height ?: size.height
     val stop = SkyPalette.at(p)
 
     // Sky gradient
@@ -222,6 +223,20 @@ fun DrawScope.drawMoon(phase: Double, center: Offset, r: Float, alpha: Float) {
     }
 }
 
+/** Animated sky inputs shared by the hero and any glass surfaces that echo it. */
+class SkyState(val progress: Float, val time: Float, val moon: Double)
+
+@Composable
+fun rememberSkyState(progress: Float, date: LocalDate): SkyState {
+    val animated by animateFloatAsState(progress, tween(1400, easing = FastOutSlowInEasing), label = "sky")
+    val transition = rememberInfiniteTransition(label = "skyTime")
+    val time by transition.animateFloat(
+        0f, 3600f, infiniteRepeatable(tween(3_600_000, easing = LinearEasing)), label = "t",
+    )
+    val moon = remember(date) { MoonPhase.phase(date) }
+    return SkyState(animated, time, moon)
+}
+
 /**
  * The animated living sky used on the dashboard. [progress] animates smoothly when it changes.
  */
@@ -233,14 +248,23 @@ fun SkyScene(
     hillFraction: Float = 0.24f,
     content: @Composable () -> Unit = {},
 ) {
-    val animated by animateFloatAsState(progress, tween(1400, easing = FastOutSlowInEasing), label = "sky")
-    val transition = rememberInfiniteTransition(label = "skyTime")
-    val time by transition.animateFloat(
-        0f, 3600f, infiniteRepeatable(tween(3_600_000, easing = LinearEasing)), label = "t",
-    )
-    val moon = remember(date) { MoonPhase.phase(date) }
+    val state = rememberSkyState(progress, date)
+    SkyScene(state, modifier, hillFraction, content)
+}
+
+@Composable
+fun SkyScene(
+    state: SkyState,
+    modifier: Modifier = Modifier,
+    hillFraction: Float = 0.24f,
+    content: @Composable () -> Unit = {},
+) {
     Box(modifier) {
-        Canvas(Modifier.fillMaxSize()) { drawSky(animated, moon, time, hillFraction = hillFraction) }
+        Canvas(Modifier.fillMaxSize()) {
+            drawSky(state.progress, state.moon, state.time, hillFraction = hillFraction)
+            // Soft scrim at the top keeps the date and icons legible against a bright noon sky.
+            drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 1f to Color.Transparent, endY = size.height * 0.35f))
+        }
         content()
     }
 }

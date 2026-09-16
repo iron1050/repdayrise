@@ -74,6 +74,11 @@ import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.ThemeMode
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
+import com.repdayrise.app.ui.components.GlassTopBar
+import com.repdayrise.app.ui.components.GlowCard
+import com.repdayrise.app.ui.components.backdropSource
+import com.repdayrise.app.ui.components.dayriseBackground
+import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.SystemBars
 import com.repdayrise.app.ui.theme.HabitColors
@@ -138,24 +143,26 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     }
     LaunchedEffect(Unit) { if (viewModel.healthAvailable) healthCount = viewModel.healthGranted() }
     SystemBars()
+    val backdrop = rememberBackdrop()
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.dayriseBackground(),
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
+                backdrop = backdrop,
                 title = { Text("Settings") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .backdropSource(backdrop)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 40.dp),
+                .padding(top = padding.calculateTopPadding(), bottom = 40.dp + padding.calculateBottomPadding()),
         ) {
             Group("Appearance") {
                 Column(Modifier.padding(16.dp)) {
@@ -270,7 +277,7 @@ private fun IconPreview(icon: AppIcon, selected: Boolean) {
 @Composable
 private fun Group(title: String, content: @Composable () -> Unit) {
     Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp))
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+    GlowCard {
         Column { content() }
     }
     Spacer(Modifier.height(12.dp))
@@ -312,18 +319,27 @@ private fun NavRow(title: String, subtitle: String, icon: androidx.compose.ui.gr
 fun HallOfFameScreen(viewModel: HallOfFameViewModel, onBack: () -> Unit, onOpenHabit: (Long) -> Unit) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<Habit?>(null) }
+    val backdrop = rememberBackdrop()
     SystemBars()
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.dayriseBackground(),
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
+                backdrop = backdrop,
                 title = { Text("Hall of Fame") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .backdropSource(backdrop)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = padding.calculateTopPadding(), bottom = 32.dp + padding.calculateBottomPadding()),
+        ) {
             if (entries.isEmpty()) {
                 Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.EmojiEvents, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(56.dp))
@@ -333,7 +349,7 @@ fun HallOfFameScreen(viewModel: HallOfFameViewModel, onBack: () -> Unit, onOpenH
                 }
             }
             entries.forEach { e ->
-                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(vertical = 5.dp), onClick = { onOpenHabit(e.habit.id) }) {
+                GlowCard(glow = HabitColors.of(e.habit.colorIndex), modifier = Modifier.padding(vertical = 5.dp).clickable { onOpenHabit(e.habit.id) }) {
                     Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconBadge(HabitIcons[e.habit.icon], HabitColors.of(e.habit.colorIndex), filled = true)
                         Spacer(Modifier.width(14.dp))

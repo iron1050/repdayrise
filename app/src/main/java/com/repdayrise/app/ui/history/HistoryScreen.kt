@@ -47,6 +47,11 @@ import com.repdayrise.app.AppContainer
 import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
+import com.repdayrise.app.ui.components.GlassTopBar
+import com.repdayrise.app.ui.components.GlowCard
+import com.repdayrise.app.ui.components.backdropSource
+import com.repdayrise.app.ui.components.dayriseBackground
+import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.SystemBars
 import com.repdayrise.app.ui.components.MiniSunrise
@@ -120,26 +125,28 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: (Long) -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val backdrop = rememberBackdrop()
     SystemBars()
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.dayriseBackground(),
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
+                backdrop = backdrop,
                 title = { Text("Sunrise history") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .backdropSource(backdrop)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp),
+                .padding(top = padding.calculateTopPadding() + 4.dp, bottom = 32.dp + padding.calculateBottomPadding()),
         ) {
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard {
                 Column(Modifier.padding(14.dp)) {
                     MonthCalendar(
                         month = state.month,
@@ -198,7 +205,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
             }
             state.topHabit?.let { (habit, count) ->
                 Spacer(Modifier.height(16.dp))
-                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer, onClick = { onOpenHabit(habit.id) }) {
+                GlowCard(glow = HabitColors.of(habit.colorIndex), modifier = Modifier.clickable { onOpenHabit(habit.id) }) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconBadge(HabitIcons[habit.icon], HabitColors.of(habit.colorIndex), filled = true)
                         Spacer(Modifier.width(14.dp))
@@ -219,7 +226,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard {
                 Column {
                     if (state.leaderboard.isEmpty()) {
                         Text("Your habits will rank here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))

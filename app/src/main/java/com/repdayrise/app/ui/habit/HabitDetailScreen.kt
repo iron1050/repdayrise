@@ -86,6 +86,11 @@ import com.repdayrise.app.data.model.formatDuration
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.domain.HabitStats
 import com.repdayrise.app.ui.components.BarChart
+import com.repdayrise.app.ui.components.GlassTopBar
+import com.repdayrise.app.ui.components.GlowCard
+import com.repdayrise.app.ui.components.backdropSource
+import com.repdayrise.app.ui.components.dayriseBackground
+import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.Gauge
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.IconBadge
@@ -120,11 +125,14 @@ fun HabitDetailScreen(
 
     val habit = state.habit
     val color = habit?.let { HabitColors.of(it.colorIndex) } ?: MaterialTheme.colorScheme.primary
+    val backdrop = rememberBackdrop()
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.dayriseBackground(accent = color),
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
+                backdrop = backdrop,
                 title = {},
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
                 actions = {
@@ -148,7 +156,6 @@ fun HabitDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
         bottomBar = {
@@ -172,14 +179,14 @@ fun HabitDetailScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .backdropSource(backdrop)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp),
+                .padding(top = padding.calculateTopPadding() + 4.dp, bottom = 32.dp + padding.calculateBottomPadding()),
         ) {
             // Header
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                IconBadge(HabitIcons[habit.icon], color, size = 64.dp, iconSize = 32.dp)
+                IconBadge(HabitIcons[habit.icon], color, size = 64.dp, iconSize = 32.dp, filled = true)
                 Spacer(Modifier.width(16.dp))
                 Column {
                     Text(habit.name, style = MaterialTheme.typography.headlineMedium)
@@ -199,7 +206,7 @@ fun HabitDetailScreen(
             Spacer(Modifier.height(20.dp))
 
             // Calendar
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard(glow = color) {
                 Column(Modifier.padding(14.dp)) {
                     MonthCalendar(
                         month = state.month,
@@ -264,7 +271,7 @@ fun HabitDetailScreen(
             Spacer(Modifier.height(16.dp))
 
             // Gauge
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard(glow = color) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Gauge(
                         fraction = state.monthCompletion,
@@ -293,7 +300,7 @@ fun HabitDetailScreen(
             Spacer(Modifier.height(16.dp))
 
             // Statistics
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            GlowCard {
                 Column(Modifier.padding(16.dp)) {
                     SectionTitle("Statistics")
                     Spacer(Modifier.height(12.dp))
@@ -339,7 +346,7 @@ fun HabitDetailScreen(
             }
             if (habit.note.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
-                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+                GlowCard {
                     Column(Modifier.padding(16.dp)) {
                         Text("Why this matters", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))

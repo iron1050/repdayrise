@@ -44,7 +44,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.draw.drawBehind
+import com.repdayrise.app.ui.theme.LocalIsDark
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -62,7 +66,19 @@ fun IconBadge(icon: ImageVector, color: Color, modifier: Modifier = Modifier, si
         modifier
             .size(size)
             .clip(CircleShape)
-            .background(if (filled) color else color.copy(alpha = 0.16f)),
+            .then(if (filled) Modifier.background(accentGradient(color)) else Modifier.background(color.copy(alpha = 0.16f)))
+            .drawBehind {
+                if (filled) {
+                    // Specular highlight so filled badges look like little glass beads.
+                    val w = this.size.width
+                    val h = this.size.height
+                    val c = Offset(w * 0.32f, h * 0.28f)
+                    drawCircle(
+                        Brush.radialGradient(0f to Color.White.copy(alpha = 0.35f), 1f to Color.Transparent, center = c, radius = w * 0.5f),
+                        radius = w * 0.5f, center = c,
+                    )
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, tint = if (filled) Color.White else color, modifier = Modifier.size(iconSize))
@@ -138,7 +154,7 @@ fun HabitControl(
                 .size(size - 4.dp)
                 .scale(fill)
                 .clip(CircleShape)
-                .background(color),
+                .background(accentGradient(color)),
         )
         AnimatedVisibility(visible = completed, enter = scaleIn(spring(dampingRatio = 0.5f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
             Icon(Icons.Rounded.Check, contentDescription = "Completed", tint = Color.White, modifier = Modifier.size(size * 0.5f))
@@ -156,12 +172,8 @@ fun HabitControl(
 
 @Composable
 fun StatTile(value: String, label: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    GlowCard(modifier = modifier, shape = MaterialTheme.shapes.medium, glow = accent) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = MaterialTheme.typography.headlineSmall, color = accent, textAlign = TextAlign.Center)
             Spacer(Modifier.height(2.dp))
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
@@ -183,13 +195,23 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: @Composa
 fun Gauge(fraction: Float, color: Color, modifier: Modifier = Modifier, label: String, sublabel: String) {
     val value by animateFloatAsState(fraction.coerceIn(0f, 1f), spring(stiffness = Spring.StiffnessLow), label = "gauge")
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val light = androidx.compose.ui.graphics.lerp(color, Color.White, 0.45f)
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val s = 14.dp.toPx()
             val d = size.minDimension - s
             val topLeft = Offset((size.width - d) / 2, (size.height - d) / 2 + s * 0.4f)
             drawArc(track, 135f, 270f, false, topLeft, Size(d, d), style = Stroke(s, cap = StrokeCap.Round))
-            if (value > 0f) drawArc(color, 135f, 270f * value, false, topLeft, Size(d, d), style = Stroke(s, cap = StrokeCap.Round))
+            if (value > 0f) {
+                val c = Offset(topLeft.x + d / 2, topLeft.y + d / 2)
+                // Rotate so the sweep gradient starts where the arc starts.
+                rotate(135f, pivot = c) {
+                    drawArc(
+                        Brush.sweepGradient(0f to light, 0.75f to color, 1f to color, center = c),
+                        0f, 270f * value, false, topLeft, Size(d, d), style = Stroke(s, cap = StrokeCap.Round),
+                    )
+                }
+            }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(label, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
@@ -225,8 +247,12 @@ fun BarChart(
                 drawRoundRect(track, Offset(x, 0f), Size(barW, size.height), radius)
                 val hgt = (v / maxV).coerceIn(0f, 1f) * size.height * progress
                 if (hgt > 0f) {
-                    val c = if (highlight == i) color else color.copy(alpha = 0.75f)
-                    drawRoundRect(c, Offset(x, size.height - hgt), Size(barW, hgt), radius)
+                    val a = if (highlight == i) 1f else 0.78f
+                    val top = androidx.compose.ui.graphics.lerp(color, Color.White, 0.3f).copy(alpha = a)
+                    drawRoundRect(
+                        Brush.verticalGradient(0f to top, 1f to color.copy(alpha = a), startY = size.height - hgt, endY = size.height),
+                        Offset(x, size.height - hgt), Size(barW, hgt), radius,
+                    )
                 }
             }
         }

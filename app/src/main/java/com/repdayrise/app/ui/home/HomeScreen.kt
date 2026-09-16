@@ -90,7 +90,29 @@ import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.data.model.formatDuration
 import com.repdayrise.app.data.model.formatValue
+import com.repdayrise.app.ui.components.Backdrop
 import com.repdayrise.app.ui.components.HabitControl
+import com.repdayrise.app.ui.components.SkyState
+import com.repdayrise.app.ui.components.backdropSource
+import com.repdayrise.app.ui.components.dayriseBackground
+import com.repdayrise.app.ui.components.drawSky
+import com.repdayrise.app.ui.components.frosted
+import com.repdayrise.app.ui.components.glassBorder
+import com.repdayrise.app.ui.components.glassTint
+import com.repdayrise.app.ui.components.rememberBackdrop
+import com.repdayrise.app.ui.components.rememberSkyState
+import com.repdayrise.app.ui.components.SunrisePill
+import com.repdayrise.app.ui.theme.LocalIsDark
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.unit.Dp
+import androidx.compose.material3.FloatingActionButtonDefaults
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.MiniSunrise
@@ -121,7 +143,9 @@ fun HomeScreen(
     val haptic = LocalHapticFeedback.current
     var valueSheetFor by remember { mutableStateOf<HabitRowUi?>(null) }
 
-    SystemBars(lightStatusIcons = true)
+    val backdrop = rememberBackdrop()
+    val sky = rememberSkyState(state.progress, state.selectedDate)
+    val isDark = LocalIsDark.current
 
     LifecycleResumeEffect(Unit) {
         viewModel.refreshToday()
@@ -129,20 +153,28 @@ fun HomeScreen(
         onPauseOrDispose { }
     }
 
-    val heroHeight = 340.dp
+    val heroHeight = 372.dp
+    val stripOverlap = 64.dp
     val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40 } }
+    val pinned by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 260 } }
+    SystemBars(lightStatusIcons = !pinned || isDark)
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.dayriseBackground(),
+        containerColor = Color.Transparent,
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddHabit,
                 expanded = !scrolled,
                 icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
                 text = { Text("New habit") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = Color.Transparent,
+                contentColor = Color.White,
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+                modifier = Modifier
+                    .shadow(18.dp, RoundedCornerShape(18.dp), ambientColor = MaterialTheme.colorScheme.primary, spotColor = MaterialTheme.colorScheme.primary)
+                    .background(SunrisePill, RoundedCornerShape(18.dp)),
             )
         },
         contentWindowInsets = WindowInsets.navigationBars,
@@ -150,7 +182,7 @@ fun HomeScreen(
         Box(Modifier.fillMaxSize()) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().backdropSource(backdrop),
                 contentPadding = PaddingValues(bottom = 120.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
             ) {
                 item(key = "hero") {
@@ -163,19 +195,23 @@ fun HomeScreen(
                                 translationY = offset * 0.55f
                             },
                     ) {
-                        SkyScene(progress = state.progress, date = state.selectedDate, modifier = Modifier.fillMaxSize(), hillFraction = 0.2f) {
-                            HeroOverlay(state, statusPadding, onOpenHistory, onOpenSettings, onToday = { viewModel.goToday() })
+                        SkyScene(state = sky, modifier = Modifier.fillMaxSize(), hillFraction = 0.2f) {
+                            HeroOverlay(state, statusPadding, stripOverlap, onOpenHistory, onOpenSettings, onToday = { viewModel.goToday() })
                         }
                     }
                 }
                 item(key = "week") {
                     WeekStrip(
                         state = state,
+                        sky = sky,
+                        listState = listState,
+                        heroHeight = heroHeight + statusPadding,
+                        overlap = stripOverlap,
                         onSelect = { viewModel.selectDate(it) },
                         onSwipe = { viewModel.shiftWeek(it) },
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
-                            .offset(y = (-28).dp),
+                            .offset(y = -stripOverlap),
                     )
                 }
                 if (!state.hasAnyHabits && state.loaded) {
@@ -252,6 +288,15 @@ fun HomeScreen(
                     }
                 }
             }
+            PinnedHeader(
+                visible = pinned,
+                state = state,
+                backdrop = backdrop,
+                statusPadding = statusPadding,
+                onOpenHistory = onOpenHistory,
+                onOpenSettings = onOpenSettings,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
     }
 
@@ -266,7 +311,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HeroOverlay(state: HomeUiState, statusPadding: androidx.compose.ui.unit.Dp, onOpenHistory: () -> Unit, onOpenSettings: () -> Unit, onToday: () -> Unit) {
+private fun HeroOverlay(state: HomeUiState, statusPadding: Dp, stripOverlap: Dp, onOpenHistory: () -> Unit, onOpenSettings: () -> Unit, onToday: () -> Unit) {
     val dateLabel = remember(state.selectedDate, state.today) {
         when (state.selectedDate) {
             state.today -> "Today"
@@ -292,7 +337,7 @@ private fun HeroOverlay(state: HomeUiState, statusPadding: androidx.compose.ui.u
             }
         }
         Spacer(Modifier.weight(1f))
-        Column(Modifier.padding(start = 24.dp, bottom = 52.dp)) {
+        Column(Modifier.padding(start = 24.dp, bottom = stripOverlap + 22.dp)) {
             AnimatedContent(
                 targetState = (state.progress * 100).roundToInt(),
                 transitionSpec = { (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut()) },
@@ -313,7 +358,7 @@ private fun HeroOverlay(state: HomeUiState, statusPadding: androidx.compose.ui.u
                     shape = CircleShape,
                     color = Color.White.copy(alpha = 0.18f),
                     contentColor = Color.White,
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.padding(top = 12.dp).glassBorder(CircleShape, alpha = 0.35f),
                 ) {
                     Text("Back to today", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
                 }
@@ -343,10 +388,25 @@ fun greeting(): String {
 }
 
 @Composable
-private fun WeekStrip(state: HomeUiState, onSelect: (LocalDate) -> Unit, onSwipe: (Long) -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier
+private fun WeekStrip(
+    state: HomeUiState,
+    sky: SkyState,
+    listState: LazyListState,
+    heroHeight: Dp,
+    overlap: Dp,
+    onSelect: (LocalDate) -> Unit,
+    onSwipe: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(26.dp)
+    val dark = LocalIsDark.current
+    val pageBg = MaterialTheme.colorScheme.background
+    val tint = if (dark) Color(0xFF141A33).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.62f)
+    Box(
+        modifier
             .fillMaxWidth()
+            .shadow(14.dp, shape, ambientColor = Color.Black.copy(alpha = 0.35f), spotColor = Color.Black.copy(alpha = 0.35f))
+            .clip(shape)
             .pointerInput(Unit) {
                 var total = 0f
                 detectHorizontalDragGestures(
@@ -354,11 +414,28 @@ private fun WeekStrip(state: HomeUiState, onSelect: (LocalDate) -> Unit, onSwipe
                     onDragEnd = { if (abs(total) > 80f) onSwipe(if (total < 0) 1 else -1) },
                 ) { _, drag -> total += drag }
             },
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        shadowElevation = 8.dp,
-        tonalElevation = 0.dp,
     ) {
+        // Blurred echo of the sky exactly where the card overlaps the hero, so the card reads as glass.
+        Box(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer { renderEffect = BlurEffect(22.dp.toPx(), 22.dp.toPx(), TileMode.Clamp) }
+                .drawBehind {
+                    val parallax = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset * 0.55f else 0f
+                    val heroH = heroHeight.toPx()
+                    val heroW = size.width + 32.dp.toPx()
+                    val dx = -16.dp.toPx()
+                    val dy = -(heroH - overlap.toPx() - parallax)
+                    translate(dx, dy) {
+                        drawSky(sky.progress, sky.moon, time = 0f, stars = emptyList(), clouds = emptyList(), hillFraction = 0.2f, detail = false, sizeOverride = Size(heroW, heroH))
+                        drawRect(pageBg, topLeft = Offset(0f, heroH), size = Size(heroW, heroH))
+                    }
+                },
+        )
+        Box(Modifier.matchParentSize().background(tint).drawBehind {
+            drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = if (dark) 0.06f else 0.35f), 1f to Color.Transparent, endY = size.height * 0.5f))
+        })
+        Box(Modifier.matchParentSize().glassBorder(shape))
         Row(Modifier.padding(horizontal = 8.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             state.week.forEach { day ->
                 val selected = day.date == state.selectedDate
@@ -406,6 +483,52 @@ private fun WeekStrip(state: HomeUiState, onSelect: (LocalDate) -> Unit, onSwipe
 }
 
 @Composable
+private fun PinnedHeader(
+    visible: Boolean,
+    state: HomeUiState,
+    backdrop: Backdrop,
+    statusPadding: Dp,
+    onOpenHistory: () -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + slideInVertically { -it / 2 },
+        exit = fadeOut() + slideOutVertically { -it / 2 },
+        modifier = modifier,
+    ) {
+        val label = when (state.selectedDate) {
+            state.today -> "Today"
+            state.today.minusDays(1) -> "Yesterday"
+            state.today.plusDays(1) -> "Tomorrow"
+            else -> state.selectedDate.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .frosted(backdrop, glassTint(0.7f))
+                .drawBehind { drawRect(Color.Black.copy(alpha = 0.06f), topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f)) }
+                .padding(top = statusPadding)
+                .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(34.dp).clip(CircleShape)) { MiniSunrise(progress = state.progress, date = state.selectedDate, modifier = Modifier.fillMaxSize()) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    if (state.total == 0) "No habits yet" else "${state.done} of ${state.total} done · ${(state.progress * 100).roundToInt()}%",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onOpenHistory) { Icon(Icons.Rounded.CalendarMonth, contentDescription = "Sunrise history", tint = MaterialTheme.colorScheme.onSurface) }
+            IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurface) }
+        }
+    }
+}
+
+@Composable
 private fun GroupHeader(name: String, done: Int, total: Int, collapsed: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val rotation by animateFloatAsState(if (collapsed) -90f else 0f, label = "chev")
     Row(
@@ -435,10 +558,9 @@ fun HabitRow(
 ) {
     val habit = row.habit
     val color = HabitColors.of(habit.colorIndex)
-    val container by androidx.compose.animation.animateColorAsState(
-        if (row.completed) color.copy(alpha = 0.10f).compositeOverSurface() else MaterialTheme.colorScheme.surfaceContainer,
-        label = "rowbg",
-    )
+    val doneMix by animateFloatAsState(if (row.completed) 1f else 0f, spring(stiffness = Spring.StiffnessLow), label = "rowbg")
+    val surface = MaterialTheme.colorScheme.surfaceContainer
+    val dark = LocalIsDark.current
     // Live timer ticking
     var elapsed by remember(row.timer?.startedAt, row.timer?.running) { mutableStateOf(row.timer?.elapsedMs() ?: 0L) }
     LaunchedEffect(row.timer?.running, row.timer?.startedAt) {
@@ -451,13 +573,28 @@ fun HabitRow(
     val timerMinutes = elapsed / 60000.0
     val liveFraction = if (habit.type == HabitType.TIMER && row.timer != null) ((row.value + timerMinutes) / habit.effectiveGoal).toFloat().coerceIn(0f, 1f) else row.fraction
 
+    val rowShape = RoundedCornerShape(22.dp)
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(rowShape)
+            .drawBehind {
+                drawRect(surface)
+                if (doneMix > 0.01f) {
+                    drawRect(
+                        Brush.horizontalGradient(
+                            0f to color.copy(alpha = 0.22f * doneMix),
+                            0.6f to color.copy(alpha = 0.08f * doneMix),
+                            1f to color.copy(alpha = 0.03f * doneMix),
+                        ),
+                    )
+                }
+                drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = if (dark) 0.035f else 0.5f), 1f to Color.Transparent, endY = size.height * 0.5f))
+            }
+            .glassBorder(rowShape, alpha = if (dark) 0.05f else 0.6f)
             .clickable(onClick = onOpen),
-        shape = RoundedCornerShape(22.dp),
-        color = container,
+        shape = rowShape,
+        color = Color.Transparent,
     ) {
         Row(Modifier.padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBadge(HabitIcons[habit.icon], color, filled = row.completed)
@@ -508,18 +645,6 @@ fun HabitRow(
     }
 }
 
-@Composable
-private fun Color.compositeOverSurface(): Color {
-    val surface = MaterialTheme.colorScheme.surfaceContainer
-    val a = alpha
-    return Color(
-        red = red * a + surface.red * (1 - a),
-        green = green * a + surface.green * (1 - a),
-        blue = blue * a + surface.blue * (1 - a),
-        alpha = 1f,
-    )
-}
-
 fun formatClock(ms: Long): String {
     val totalSec = ms / 1000
     val h = totalSec / 3600
@@ -549,7 +674,12 @@ private fun EmptyState(onAdd: () -> Unit) {
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(18.dp))
-        Button(onClick = onAdd, shape = CircleShape) {
+        Button(
+            onClick = onAdd,
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
+            modifier = Modifier.background(SunrisePill, CircleShape),
+        ) {
             Icon(Icons.Rounded.Add, contentDescription = null)
             Spacer(Modifier.width(6.dp))
             Text("Create your first habit")
