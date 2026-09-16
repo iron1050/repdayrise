@@ -126,6 +126,7 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
     Scaffold(
         modifier = Modifier.dayriseBackground(accent = color),
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             GlassTopBar(
                 backdrop = backdrop,

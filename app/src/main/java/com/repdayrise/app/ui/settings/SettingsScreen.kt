@@ -148,6 +148,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     Scaffold(
         modifier = Modifier.dayriseBackground(),
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             GlassTopBar(
                 backdrop = backdrop,
@@ -324,6 +325,7 @@ fun HallOfFameScreen(viewModel: HallOfFameViewModel, onBack: () -> Unit, onOpenH
     Scaffold(
         modifier = Modifier.dayriseBackground(),
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             GlassTopBar(
                 backdrop = backdrop,

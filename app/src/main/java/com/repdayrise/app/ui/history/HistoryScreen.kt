@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -130,6 +132,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
     Scaffold(
         modifier = Modifier.dayriseBackground(),
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             GlassTopBar(
                 backdrop = backdrop,
@@ -199,9 +202,9 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("${(state.monthAverage * 100).roundToInt()}%", "Monthly progress", Modifier.weight(1f))
-                StatTile("${state.perfectDays}", "Perfect days", Modifier.weight(1f))
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile("${(state.monthAverage * 100).roundToInt()}%", "Monthly progress", Modifier.weight(1f).fillMaxHeight())
+                StatTile("${state.perfectDays}", "Perfect days", Modifier.weight(1f).fillMaxHeight())
             }
             state.topHabit?.let { (habit, count) ->
                 Spacer(Modifier.height(16.dp))

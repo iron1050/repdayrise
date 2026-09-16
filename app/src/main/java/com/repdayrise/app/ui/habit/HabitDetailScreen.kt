@@ -12,6 +12,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -130,6 +132,7 @@ fun HabitDetailScreen(
     Scaffold(
         modifier = Modifier.dayriseBackground(accent = color),
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             GlassTopBar(
                 backdrop = backdrop,
@@ -198,10 +201,10 @@ fun HabitDetailScreen(
                 }
             }
             Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("${state.stats.currentStreak}", "Current streak", Modifier.weight(1f), accent = color)
-                StatTile("${state.stats.bestStreak}", "Best streak", Modifier.weight(1f), accent = color)
-                StatTile("${state.stats.totalDays}", "Total days", Modifier.weight(1f), accent = color)
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile("${state.stats.currentStreak}", "Current streak", Modifier.weight(1f).fillMaxHeight(), accent = color)
+                StatTile("${state.stats.bestStreak}", "Best streak", Modifier.weight(1f).fillMaxHeight(), accent = color)
+                StatTile("${state.stats.totalDays}", "Total days", Modifier.weight(1f).fillMaxHeight(), accent = color)
             }
             Spacer(Modifier.height(20.dp))
 

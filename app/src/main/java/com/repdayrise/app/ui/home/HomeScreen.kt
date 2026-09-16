@@ -112,6 +112,7 @@ import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.FloatingActionButtonDefaults
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.IconBadge
@@ -157,12 +158,14 @@ fun HomeScreen(
     val stripOverlap = 64.dp
     val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40 } }
-    val pinned by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 260 } }
+    val pinnedAfterPx = with(LocalDensity.current) { (heroHeight - 40.dp).toPx() }
+    val pinned by remember(pinnedAfterPx) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > pinnedAfterPx } }
     SystemBars(lightStatusIcons = !pinned || isDark)
 
     Scaffold(
         modifier = Modifier.dayriseBackground(),
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddHabit,
@@ -186,18 +189,17 @@ fun HomeScreen(
                 contentPadding = PaddingValues(bottom = 120.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
             ) {
                 item(key = "hero") {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(heroHeight + statusPadding)
-                            .graphicsLayer {
+                    Box(Modifier.fillMaxWidth().height(heroHeight + statusPadding)) {
+                        // Only the sky gets parallax; the text scrolls with the list so it never slides under the week strip.
+                        SkyScene(
+                            state = sky,
+                            hillFraction = 0.2f,
+                            modifier = Modifier.fillMaxSize().graphicsLayer {
                                 val offset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0
                                 translationY = offset * 0.55f
                             },
-                    ) {
-                        SkyScene(state = sky, modifier = Modifier.fillMaxSize(), hillFraction = 0.2f) {
-                            HeroOverlay(state, statusPadding, stripOverlap, onOpenHistory, onOpenSettings, onToday = { viewModel.goToday() })
-                        }
+                        )
+                        HeroOverlay(state, statusPadding, stripOverlap, onOpenHistory, onOpenSettings, onToday = { viewModel.goToday() })
                     }
                 }
                 item(key = "week") {
