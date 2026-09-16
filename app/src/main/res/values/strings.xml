@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Dayrise</string>
+    <string name="widget_sunrise_label">Sunrise</string>
+    <string name="widget_habits_label">Today\'s habits</string>
+    <string name="widget_sunrise_description">Watch the sun rise as you complete today\'s habits.</string>
+    <string name="widget_habits_description">Complete habits without opening the app.</string>
+    <string name="notification_channel_reminders">Habit reminders</string>
+    <string name="notification_channel_timers">Timers</string>
+</resources>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- stars -->
+    <path android:fillColor="#CCFFFFFF" android:pathData="M34,36 m-1.4,0 a1.4,1.4 0 1,0 2.8,0 a1.4,1.4 0 1,0 -2.8,0" />
+    <path android:fillColor="#99FFFFFF" android:pathData="M74,30 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+    <path android:fillColor="#AAFFFFFF" android:pathData="M42,26 m-0.9,0 a0.9,0.9 0 1,0 1.8,0 a0.9,0.9 0 1,0 -1.8,0" />
+    <path android:fillColor="#88FFFFFF" android:pathData="M80,52 m-1.2,0 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0" />
+    <path android:fillColor="#77FFFFFF" android:pathData="M28,56 m-0.8,0 a0.8,0.8 0 1,0 1.6,0 a0.8,0.8 0 1,0 -1.6,0" />
+    <path android:fillColor="#BBFFFFFF" android:pathData="M64,22 m-0.7,0 a0.7,0.7 0 1,0 1.4,0 a0.7,0.7 0 1,0 -1.4,0" />
+    <!-- moon glow -->
+    <path android:pathData="M56,50 m-28,0 a28,28 0 1,0 56,0 a28,28 0 1,0 -56,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="56"
+                android:centerY="50"
+                android:gradientRadius="28"
+                android:type="radial">
+                <item android:color="#33F5F0D8" android:offset="0.0" />
+                <item android:color="#00F5F0D8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- moon -->
+    <path android:fillColor="#FFF5F0D8" android:pathData="M56,50 m-18,0 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0" />
+    <path android:fillColor="#FF0B1026" android:pathData="M64,44 m-16,0 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0" />
+    <!-- hills -->
+    <path
+        android:fillColor="#FF171C3D"
+        android:pathData="M0,80 C18,68 34,66 54,72 C70,77 88,74 108,66 L108,108 L0,108 Z" />
+    <path
+        android:fillColor="#FF05060F"
+        android:pathData="M0,92 C22,82 40,80 60,86 C78,91 94,88 108,82 L108,108 L0,108 Z" />
+</vector>
