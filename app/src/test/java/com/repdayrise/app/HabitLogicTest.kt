@@ -6,6 +6,7 @@ import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.domain.MoonPhase
+import com.repdayrise.app.ui.components.contributionLevel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -71,5 +72,51 @@ class HabitLogicTest {
         // 2026-09-26 is a near-full moon; phase should be around 0.5
         val full = MoonPhase.phase(LocalDate.of(2026, 9, 26))
         assertTrue(full > 0.4 && full < 0.6)
+    }
+
+    @Test
+    fun graphStartIsAWeekStartFiftyTwoWeeksBack() {
+        val start = logic.graphStart(today)
+        assertEquals(DayOfWeek.MONDAY, start.dayOfWeek)
+        assertEquals(LocalDate.of(2026, 9, 14).minusWeeks(52), start)
+    }
+
+    @Test
+    fun habitHeatmapReportsFractionsInsideTheRangeOnly() {
+        val habit = Habit(id = 1, name = "Water", type = HabitType.COUNT, goal = 8.0, startDate = today.minusDays(400))
+        val e = mapOf(1L to mapOf(
+            today.toEpochDay() to 4.0,
+            today.minusDays(1).toEpochDay() to 12.0,
+            today.minusDays(500).toEpochDay() to 8.0,
+        ))
+        val map = logic.habitHeatmap(habit, e, logic.graphStart(today), today)
+        assertEquals(2, map.size)
+        assertEquals(0.5f, map[today.toEpochDay()]!!, 0.001f)
+        assertEquals(1f, map[today.minusDays(1).toEpochDay()]!!, 0.001f)
+    }
+
+    @Test
+    fun overallHeatmapAveragesAcrossDueHabits() {
+        val a = Habit(id = 1, name = "Read", startDate = today.minusDays(10))
+        val b = Habit(id = 2, name = "Walk", startDate = today.minusDays(10))
+        val retired = Habit(id = 3, name = "Old", startDate = today.minusDays(10), archived = true)
+        val e = mapOf(
+            1L to mapOf(today.toEpochDay() to 1.0, today.minusDays(1).toEpochDay() to 1.0),
+            2L to mapOf(today.toEpochDay() to 1.0),
+            3L to mapOf(today.minusDays(2).toEpochDay() to 1.0),
+        )
+        val map = logic.overallHeatmap(listOf(a, b, retired), e, logic.graphStart(today), today)
+        assertEquals(1f, map[today.toEpochDay()]!!, 0.001f)
+        assertEquals(0.5f, map[today.minusDays(1).toEpochDay()]!!, 0.001f)
+        assertEquals(null, map[today.minusDays(2).toEpochDay()])
+    }
+
+    @Test
+    fun contributionLevelsBucketLikeAGithubGraph() {
+        assertEquals(0, contributionLevel(0f))
+        assertEquals(1, contributionLevel(0.1f))
+        assertEquals(2, contributionLevel(0.5f))
+        assertEquals(3, contributionLevel(0.9f))
+        assertEquals(4, contributionLevel(1f))
     }
 }

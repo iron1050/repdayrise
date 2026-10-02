@@ -49,6 +49,7 @@ import com.repdayrise.app.AppContainer
 import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
+import com.repdayrise.app.ui.components.ContributionGraph
 import com.repdayrise.app.ui.components.GlassTopBar
 import com.repdayrise.app.ui.components.GlowCard
 import com.repdayrise.app.ui.components.backdropSource
@@ -88,6 +89,8 @@ data class HistoryUiState(
     val mode: LeaderboardMode = LeaderboardMode.STREAK,
     val weekStart: DayOfWeek = DayOfWeek.MONDAY,
     val today: LocalDate = LocalDate.now(),
+    val heatmap: Map<Long, Float> = emptyMap(),
+    val yearPerfect: Int = 0,
 )
 
 class HistoryViewModel(container: AppContainer) : ViewModel() {
@@ -113,7 +116,8 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
             val s = logic.stats(h, entries, today)
             LeaderEntry(h, s.bestStreak, s.currentStreak, s.totalDays, s.streakUnit)
         }.sortedByDescending { if (mode == LeaderboardMode.STREAK) it.bestStreak else it.totalDays }.take(10)
-        HistoryUiState(month, days, null, avg, perfect, top, leaders, mode, logic.weekDays(today).first().dayOfWeek, today)
+        val heatmap = logic.overallHeatmap(active, entries, logic.graphStart(today), today)
+        HistoryUiState(month, days, null, avg, perfect, top, leaders, mode, logic.weekDays(today).first().dayOfWeek, today, heatmap, heatmap.values.count { it >= 0.999f })
     }.combine(selected) { s, sel -> s.copy(selected = sel) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryUiState())
 
@@ -199,6 +203,24 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                             }
                         }
                     }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            GlowCard(glow = MaterialTheme.colorScheme.primary) {
+                Column(Modifier.padding(16.dp)) {
+                    SectionTitle("The past year")
+                    Spacer(Modifier.height(12.dp))
+                    ContributionGraph(
+                        values = state.heatmap,
+                        today = state.today,
+                        weekStart = state.weekStart,
+                        color = MaterialTheme.colorScheme.primary,
+                        summary = "${state.yearPerfect} perfect ${if (state.yearPerfect == 1) "day" else "days"}",
+                        describe = { date ->
+                            val pct = ((state.heatmap[date.toEpochDay()] ?: 0f) * 100).roundToInt()
+                            date.format(DateTimeFormatter.ofPattern("EEE, MMM d")) + " · " + if (pct == 0) "Nothing logged" else "$pct% of the day's habits"
+                        },
+                    )
                 }
             }
             Spacer(Modifier.height(16.dp))

@@ -88,6 +88,7 @@ import com.repdayrise.app.data.model.formatDuration
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.domain.HabitStats
 import com.repdayrise.app.ui.components.BarChart
+import com.repdayrise.app.ui.components.ContributionGraph
 import com.repdayrise.app.ui.components.GlassTopBar
 import com.repdayrise.app.ui.components.GlowCard
 import com.repdayrise.app.ui.components.backdropSource
@@ -268,6 +269,33 @@ fun HabitDetailScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+
+            // Year graph
+            GlowCard(glow = color) {
+                Column(Modifier.padding(16.dp)) {
+                    SectionTitle("The past year")
+                    Spacer(Modifier.height(12.dp))
+                    ContributionGraph(
+                        values = state.heatmap,
+                        today = state.today,
+                        weekStart = state.weekStart,
+                        color = color,
+                        firstDay = habit.startDate,
+                        summary = "${state.yearDone} ${if (state.yearDone == 1) "day" else "days"} completed",
+                        describe = { date ->
+                            val v = state.values[date.toEpochDay()] ?: 0.0
+                            val what = when {
+                                date.isBefore(habit.startDate) && v <= 0.0 -> "Before you started"
+                                habit.type == HabitType.CHECK -> if (v > 0.0) "Completed" else "Not completed"
+                                habit.type == HabitType.TIMER -> "${formatDuration(v)} of ${formatDuration(habit.goal)}"
+                                else -> "${formatValue(v)} of ${formatValue(habit.goal)} ${habit.unit}".trim()
+                            }
+                            date.format(DateTimeFormatter.ofPattern("EEE, MMM d")) + " · " + what
+                        },
                     )
                 }
             }

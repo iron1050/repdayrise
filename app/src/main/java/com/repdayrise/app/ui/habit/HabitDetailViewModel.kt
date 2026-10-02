@@ -49,6 +49,9 @@ data class DetailUiState(
     val chart: ChartData = ChartData(),
     val weekStart: DayOfWeek = DayOfWeek.MONDAY,
     val today: LocalDate = LocalDate.now(),
+    val heatmap: Map<Long, Float> = emptyMap(),
+    val values: Map<Long, Double> = emptyMap(),
+    val yearDone: Int = 0,
     val selection: Set<LocalDate> = emptySet(),
     val loaded: Boolean = false,
     val deleted: Boolean = false,
@@ -74,6 +77,7 @@ class HabitDetailViewModel(private val container: AppContainer, private val habi
 
     private fun build(habit: Habit, entries: EntryMap, logic: HabitLogic, month: YearMonth, period: StatPeriod): DetailUiState {
         val today = LocalDate.now()
+        val heatmap = logic.habitHeatmap(habit, entries, logic.graphStart(today), today)
         val statuses = (1..month.lengthOfMonth()).associate { d ->
             val date = month.atDay(d)
             date to logic.dayStatus(habit, entries, date)
@@ -89,6 +93,9 @@ class HabitDetailViewModel(private val container: AppContainer, private val habi
             chart = chart(habit, entries, logic, period, today),
             weekStart = logic.weekDays(today).first().dayOfWeek,
             today = today,
+            heatmap = heatmap,
+            values = entries[habit.id].orEmpty(),
+            yearDone = heatmap.values.count { it >= 0.999f },
             loaded = true,
         )
     }

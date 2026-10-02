@@ -27,6 +27,9 @@ data class DayStatus(
     val completed: Boolean,
 )
 
+/** Columns on the year graph: 53 weeks always covers a full year whatever weekday today is. */
+const val GRAPH_WEEKS = 53
+
 class HabitLogic(private val weekStart: DayOfWeek = DayOfWeek.MONDAY) {
 
     fun value(entries: EntryMap, habitId: Long, date: LocalDate): Double =
@@ -198,6 +201,35 @@ class HabitLogic(private val weekStart: DayOfWeek = DayOfWeek.MONDAY) {
                 done.toFloat() / habit.timesPerPeriod
             }
         }
+    }
+
+    /** First day shown on a year graph of [weeks] columns ending in the week of [today]. */
+    fun graphStart(today: LocalDate, weeks: Int = GRAPH_WEEKS): LocalDate = weekStartOf(today).minusWeeks((weeks - 1).toLong())
+
+    /** epochDay -> fraction of the goal reached, for one habit, across an inclusive range. */
+    fun habitHeatmap(habit: Habit, entries: EntryMap, from: LocalDate, to: LocalDate): Map<Long, Float> {
+        val lo = from.toEpochDay()
+        val hi = to.toEpochDay()
+        val out = HashMap<Long, Float>()
+        for ((epoch, v) in entries[habit.id].orEmpty()) {
+            if (epoch in lo..hi && v > 0.0) out[epoch] = fraction(habit, v)
+        }
+        return out
+    }
+
+    /** epochDay -> overall day progress across [habits], for an inclusive range. Days with nothing logged are omitted. */
+    fun overallHeatmap(habits: List<Habit>, entries: EntryMap, from: LocalDate, to: LocalDate): Map<Long, Float> {
+        val lo = from.toEpochDay()
+        val hi = to.toEpochDay()
+        val active = habits.filter { !it.archived }
+        val days = HashSet<Long>()
+        for (h in active) for ((epoch, v) in entries[h.id].orEmpty()) if (epoch in lo..hi && v > 0.0) days.add(epoch)
+        val out = HashMap<Long, Float>()
+        for (epoch in days) {
+            val p = dayProgress(active, entries, LocalDate.ofEpochDay(epoch))
+            if (p > 0f) out[epoch] = p
+        }
+        return out
     }
 
     /** Count of completed days in an inclusive date range. */
