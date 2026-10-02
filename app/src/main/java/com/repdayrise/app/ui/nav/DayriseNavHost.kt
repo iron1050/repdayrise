@@ -27,17 +27,25 @@ import com.repdayrise.app.ui.history.HistoryScreen
 import com.repdayrise.app.ui.history.HistoryViewModel
 import com.repdayrise.app.ui.home.HomeScreen
 import com.repdayrise.app.ui.home.HomeViewModel
+import com.repdayrise.app.ui.partners.PartnerDetailScreen
+import com.repdayrise.app.ui.partners.PartnerDetailViewModel
+import com.repdayrise.app.ui.partners.PartnersScreen
+import com.repdayrise.app.ui.partners.PartnersViewModel
 import com.repdayrise.app.ui.settings.HallOfFameScreen
 import com.repdayrise.app.ui.settings.HallOfFameViewModel
 import com.repdayrise.app.ui.settings.SettingsScreen
 import com.repdayrise.app.ui.settings.SettingsViewModel
 
 @Composable
-fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistory: Boolean = false, onPendingConsumed: () -> Unit) {
+fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistory: Boolean = false, pendingJoinCode: String? = null, onPendingConsumed: () -> Unit) {
     val backStack = rememberNavBackStack(HomeRoute)
 
-    LaunchedEffect(pendingHabitId, pendingHistory) {
-        if (pendingHabitId != null && pendingHabitId > 0) {
+    LaunchedEffect(pendingHabitId, pendingHistory, pendingJoinCode) {
+        if (pendingJoinCode != null) {
+            backStack.removeAll { it is PartnersRoute || it is PartnerDetailRoute }
+            backStack.add(PartnersRoute(pendingJoinCode))
+            onPendingConsumed()
+        } else if (pendingHabitId != null && pendingHabitId > 0) {
             backStack.add(HabitDetailRoute(pendingHabitId))
             onPendingConsumed()
         } else if (pendingHistory) {
@@ -77,6 +85,7 @@ fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistor
                     onAddHabit = { backStack.add(EditHabitRoute()) },
                     onOpenHistory = { backStack.add(HistoryRoute) },
                     onOpenSettings = { backStack.add(SettingsRoute) },
+                    onOpenPartners = { backStack.add(PartnersRoute()) },
                 )
             }
             entry<HabitDetailRoute> { route ->
@@ -93,7 +102,15 @@ fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistor
             }
             entry<SettingsRoute> {
                 val vm: SettingsViewModel = viewModel { SettingsViewModel(container) }
-                SettingsScreen(viewModel = vm, onBack = { pop() }, onOpenHallOfFame = { backStack.add(HallOfFameRoute) })
+                SettingsScreen(viewModel = vm, onBack = { pop() }, onOpenHallOfFame = { backStack.add(HallOfFameRoute) }, onOpenPartners = { backStack.add(PartnersRoute()) })
+            }
+            entry<PartnersRoute> { route ->
+                val vm: PartnersViewModel = viewModel { PartnersViewModel(container) }
+                PartnersScreen(viewModel = vm, joinCode = route.joinCode, onBack = { pop() }, onOpenPartner = { backStack.add(PartnerDetailRoute(it)) })
+            }
+            entry<PartnerDetailRoute> { route ->
+                val vm: PartnerDetailViewModel = viewModel(key = "partner-${route.shareId}") { PartnerDetailViewModel(container, route.shareId) }
+                PartnerDetailScreen(viewModel = vm, onBack = { pop() })
             }
             entry<HallOfFameRoute> {
                 val vm: HallOfFameViewModel = viewModel { HallOfFameViewModel(container) }

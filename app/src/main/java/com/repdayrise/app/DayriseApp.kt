@@ -10,6 +10,7 @@ import com.repdayrise.app.data.SettingsRepository
 import com.repdayrise.app.data.db.DayriseDatabase
 import com.repdayrise.app.data.health.HealthConnectManager
 import com.repdayrise.app.data.health.HealthSync
+import com.repdayrise.app.data.sharing.SharingRepository
 import com.repdayrise.app.data.model.AppIcon
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.notifications.Channels
@@ -54,6 +55,7 @@ class AppContainer(val context: Context) {
     val healthSync = HealthSync(repository, health)
     val reminderScheduler = ReminderScheduler(context)
     val widgetUpdater = WidgetUpdater(context)
+    val sharing = SharingRepository(context, repository, settings, appScope)
 
     @Volatile private var weekStartsMonday = true
 
@@ -64,14 +66,19 @@ class AppContainer(val context: Context) {
                     reminderScheduler.scheduleAll(repository.getAllHabitsOnce())
                     widgetUpdater.updateAll()
                 }
+                sharing.requestSync()
             }
 
             override fun onEntriesChanged() {
                 appScope.launch { widgetUpdater.updateAll() }
+                sharing.requestSync()
             }
         }
         appScope.launch {
-            settings.settings.collect { weekStartsMonday = it.weekStartsMonday }
+            settings.settings.collect {
+                if (weekStartsMonday != it.weekStartsMonday) sharing.requestSync()
+                weekStartsMonday = it.weekStartsMonday
+            }
         }
     }
 

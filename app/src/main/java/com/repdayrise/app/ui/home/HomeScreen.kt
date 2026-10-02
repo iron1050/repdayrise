@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Button
@@ -138,6 +139,7 @@ fun HomeScreen(
     onAddHabit: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenPartners: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -199,7 +201,7 @@ fun HomeScreen(
                                 translationY = offset * 0.55f
                             },
                         )
-                        HeroOverlay(state, statusPadding, stripOverlap, onOpenHistory, onOpenSettings, onToday = { viewModel.goToday() })
+                        HeroOverlay(state, statusPadding, stripOverlap, onOpenHistory, onOpenSettings, onOpenPartners, onToday = { viewModel.goToday() })
                     }
                 }
                 item(key = "week") {
@@ -297,6 +299,7 @@ fun HomeScreen(
                 statusPadding = statusPadding,
                 onOpenHistory = onOpenHistory,
                 onOpenSettings = onOpenSettings,
+                onOpenPartners = onOpenPartners,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
@@ -313,7 +316,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HeroOverlay(state: HomeUiState, statusPadding: Dp, stripOverlap: Dp, onOpenHistory: () -> Unit, onOpenSettings: () -> Unit, onToday: () -> Unit) {
+private fun HeroOverlay(state: HomeUiState, statusPadding: Dp, stripOverlap: Dp, onOpenHistory: () -> Unit, onOpenSettings: () -> Unit, onOpenPartners: () -> Unit, onToday: () -> Unit) {
     val dateLabel = remember(state.selectedDate, state.today) {
         when (state.selectedDate) {
             state.today -> "Today"
@@ -330,6 +333,9 @@ private fun HeroOverlay(state: HomeUiState, statusPadding: Dp, stripOverlap: Dp,
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(dateLabel, style = MaterialTheme.typography.titleLarge, color = Color.White)
                 Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f))
+            }
+            IconButton(onClick = onOpenPartners, colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) {
+                Icon(Icons.Rounded.Group, contentDescription = "Partners")
             }
             IconButton(onClick = onOpenHistory, colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) {
                 Icon(Icons.Rounded.CalendarMonth, contentDescription = "Sunrise history")
@@ -492,6 +498,7 @@ private fun PinnedHeader(
     statusPadding: Dp,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenPartners: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -524,6 +531,7 @@ private fun PinnedHeader(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            IconButton(onClick = onOpenPartners) { Icon(Icons.Rounded.Group, contentDescription = "Partners", tint = MaterialTheme.colorScheme.onSurface) }
             IconButton(onClick = onOpenHistory) { Icon(Icons.Rounded.CalendarMonth, contentDescription = "Sunrise history", tint = MaterialTheme.colorScheme.onSurface) }
             IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurface) }
         }

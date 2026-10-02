@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Delete
@@ -127,7 +128,7 @@ class HallOfFameViewModel(container: AppContainer) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallOfFame: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallOfFame: () -> Unit, onOpenPartners: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var notifGranted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) }
@@ -202,6 +203,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
                 NavRow("Hall of Fame", "Habits you've completed and retired", Icons.Rounded.EmojiEvents, onOpenHallOfFame)
             }
 
+            Group("Partners") {
+                NavRow("Accountability partners", "Share your list, or follow someone else's", Icons.Rounded.Group, onOpenPartners)
+            }
+
             Group("Reminders") {
                 NavRow(
                     "Notifications",
@@ -244,7 +249,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
                     Text("Dayrise for Android", style = MaterialTheme.typography.titleSmall)
                     Text("Version ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0"} · Android ${Build.VERSION.RELEASE}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
-                    Text("Complete your habits and watch the sun rise. Everything stays on your device.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Complete your habits and watch the sun rise. Everything stays on your device unless you choose to share your list with a partner.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

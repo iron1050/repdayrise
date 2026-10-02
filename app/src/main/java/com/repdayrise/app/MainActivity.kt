@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private var pendingHabitId by mutableStateOf<Long?>(null)
     private var pendingHistory by mutableStateOf(false)
+    private var pendingJoinCode by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
@@ -36,6 +37,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         pendingHabitId = intent?.getLongExtra(EXTRA_HABIT_ID, -1L)?.takeIf { it > 0 }
         pendingHistory = intent?.getBooleanExtra(EXTRA_OPEN_HISTORY, false) == true
+        // Only on a fresh launch: after a rotation the saved intent would replay the invite.
+        if (savedInstanceState == null) pendingJoinCode = joinCodeOf(intent)
         val container = (application as DayriseApp).container
         var ready = false
         splash.setKeepOnScreenCondition { !ready }
@@ -56,7 +59,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 })
                             } else {
-                                DayriseNavHost(container = container, pendingHabitId = pendingHabitId, pendingHistory = pendingHistory, onPendingConsumed = { pendingHabitId = null; pendingHistory = false })
+                                DayriseNavHost(container = container, pendingHabitId = pendingHabitId, pendingHistory = pendingHistory, pendingJoinCode = pendingJoinCode, onPendingConsumed = { pendingHabitId = null; pendingHistory = false; pendingJoinCode = null })
                             }
                         }
                     }
@@ -70,6 +73,14 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         pendingHabitId = intent.getLongExtra(EXTRA_HABIT_ID, -1L).takeIf { it > 0 }
         pendingHistory = intent.getBooleanExtra(EXTRA_OPEN_HISTORY, false)
+        pendingJoinCode = joinCodeOf(intent)
+    }
+
+    /** Invite links look like dayrise://join/ABCDEFGHJK. */
+    private fun joinCodeOf(intent: Intent?): String? {
+        val uri = intent?.data ?: return null
+        if (intent.action != Intent.ACTION_VIEW || uri.scheme != "dayrise" || uri.host != "join") return null
+        return uri.lastPathSegment?.filter { it.isLetterOrDigit() }?.take(16)?.takeIf { it.isNotEmpty() }
     }
 
     private suspend fun addStarterHabits(container: AppContainer) {

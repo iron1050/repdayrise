@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dayrise-sharing",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  // No database_id on purpose: `wrangler deploy` creates the D1 database on first deploy and
+  // writes its id back here. The Worker creates its own tables, so there is no migration step.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "dayrise" }
+  ],
+  "observability": { "enabled": true }
+}

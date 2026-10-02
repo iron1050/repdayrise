@@ -9,3 +9,5 @@ import kotlinx.serialization.Serializable
 @Serializable data object HistoryRoute : NavKey
 @Serializable data object SettingsRoute : NavKey
 @Serializable data object HallOfFameRoute : NavKey
+@Serializable data class PartnersRoute(val joinCode: String? = null) : NavKey
+@Serializable data class PartnerDetailRoute(val shareId: String) : NavKey

@@ -33,14 +33,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
@@ -50,7 +55,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
-import java.util.Locale
 
 /** Number of intensity steps above "empty", as on a GitHub contribution graph. */
 private const val LEVELS = 4
@@ -107,6 +111,7 @@ fun ContributionGraph(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val ring = MaterialTheme.colorScheme.onSurface
     val measurer = rememberTextMeasurer()
+    val locale = LocalConfiguration.current.locales[0]
     val monthRow = 18.dp
     val scroll = rememberScrollState(Int.MAX_VALUE)
 
@@ -122,14 +127,34 @@ fun ContributionGraph(
                     Box(Modifier.height(cell), contentAlignment = Alignment.CenterStart) {
                         if (r % 2 == 1) {
                             Text(
-                                weekStart.plus(r.toLong()).getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                                weekStart.plus(r.toLong()).getDisplayName(TextStyle.SHORT, locale),
                                 style = labelStyle, color = labelColor,
                             )
                         }
                     }
                 }
             }
-            Box(Modifier.weight(1f).horizontalScroll(scroll)) {
+            val fade = 14.dp
+            Box(
+                Modifier
+                    .weight(1f)
+                    // Cells dissolve at whichever edge has more to scroll to, instead of being cut off.
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        val f = fade.toPx()
+                        if (scroll.value > 0) {
+                            drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), endX = f), size = Size(f, size.height), blendMode = BlendMode.DstIn)
+                        }
+                        if (scroll.value < scroll.maxValue) {
+                            drawRect(
+                                Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - f, endX = size.width),
+                                topLeft = Offset(size.width - f, 0f), size = Size(f, size.height), blendMode = BlendMode.DstIn,
+                            )
+                        }
+                    }
+                    .horizontalScroll(scroll),
+            ) {
                 val pitch = cell + gap
                 Canvas(
                     Modifier
@@ -157,7 +182,7 @@ fun ContributionGraph(
                         // Month label above the first column that contains the 1st of a month.
                         val monthStart = (0..6).map { weekDate.plusDays(it.toLong()) }.firstOrNull { it.dayOfMonth == 1 }
                         if ((monthStart != null || w == 0) && x > lastLabelRight) {
-                            val label = (monthStart ?: weekDate).month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                            val label = (monthStart ?: weekDate).month.getDisplayName(TextStyle.SHORT, locale)
                             val layout = measurer.measure(label, labelStyle)
                             if (x + layout.size.width <= size.width) {
                                 drawText(layout, labelColor, Offset(x, 0f))

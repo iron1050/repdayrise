@@ -1,9 +1,18 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.jetbrains.kotlin.plugin.serialization)
 }
+
+// Address of the sharing backend (see /backend). Set `dayrise.sharingUrl=https://…` in
+// local.properties to bake it in; it can also be changed in the app under Partners.
+val sharingUrl: String = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}.getProperty("dayrise.sharingUrl", "")
 
 android {
     namespace = "com.repdayrise.app"
@@ -19,6 +28,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "SHARING_URL", "\"$sharingUrl\"")
     }
 
     buildTypes {
@@ -34,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
