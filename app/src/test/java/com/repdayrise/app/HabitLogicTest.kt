@@ -48,7 +48,7 @@ class HabitLogicTest {
 
     @Test
     fun measurableProgressIsFractional() {
-        val habit = Habit(id = 1, name = "Water", type = HabitType.COUNT, goal = 8.0, unit = "glasses")
+        val habit = Habit(id = 1, name = "Water", type = HabitType.COUNT, goal = 8.0, unit = "glasses", startDate = today.minusDays(10))
         val e = entries(1, today, value = 4.0)
         assertEquals(0.5f, logic.dayProgress(listOf(habit), e, today), 0.001f)
         assertTrue(!logic.isCompleted(habit, e, today))
