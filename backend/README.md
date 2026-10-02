@@ -14,9 +14,12 @@ npx wrangler login
 npm run deploy
 ```
 
-The first deploy creates the D1 database and prints the Worker's address, which looks like
-`https://dayrise-sharing.<your-subdomain>.workers.dev`. The Worker creates its own tables on
-first use, so there is no migration step.
+The shared deployment lives at `https://dayrise-sharing.dayrise-sharing.workers.dev`, and
+`wrangler.jsonc` pins its D1 database, so `npm run deploy` from that Cloudflare account updates it
+in place. To run your own copy on another account, delete `database_id` from `wrangler.jsonc`
+first: the deploy then creates a fresh database and prints the new Worker's address. The Worker
+creates its own tables on first use, so there is no migration step. A brand-new `workers.dev`
+subdomain can take a few minutes to get its HTTPS certificate.
 
 Then point the app at it, either way:
 

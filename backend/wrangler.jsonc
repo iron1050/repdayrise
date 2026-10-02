@@ -4,10 +4,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
-  // No database_id on purpose: `wrangler deploy` creates the D1 database on first deploy and
-  // writes its id back here. The Worker creates its own tables, so there is no migration step.
+  // The shared deployment's database. Deploying a fresh copy to another account? Remove
+  // database_id and `wrangler deploy` will create a new one. The Worker creates its own tables.
   "d1_databases": [
-    { "binding": "DB", "database_name": "dayrise" }
+    { "binding": "DB", "database_name": "dayrise", "database_id": "d830d727-bd42-4806-8bb0-aceba2fc031a" }
   ],
   "observability": { "enabled": true }
 }
