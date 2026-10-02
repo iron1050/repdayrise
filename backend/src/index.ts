@@ -270,7 +270,9 @@ async function feed(env: Env, req: Request, ctx: ExecutionContext): Promise<Resp
   }
 
   const etag = `"${row.share_id}-${row.version}"`;
-  if (req.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
+  // Weak comparison, as If-None-Match requires: Cloudflare adds W/ to the ETag when it compresses.
+  const ifNoneMatch = (req.headers.get("if-none-match") ?? "").split(",").map((t) => t.trim().replace(/^W\//, ""));
+  if (ifNoneMatch.includes(etag)) return new Response(null, { status: 304, headers: { etag } });
   return json(
     {
       shareId: row.share_id,
