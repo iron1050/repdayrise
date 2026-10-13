@@ -1,0 +1,100 @@
+<Page
+    x:Class="RepDayrise.Views.HabitDetailPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:RepDayrise.Controls">
+
+    <ScrollViewer>
+        <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Padding="{StaticResource PagePadding}">
+            <Grid ColumnSpacing="16" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid Width="56" Height="56">
+                    <Ellipse x:Name="BadgeCircle" />
+                    <FontIcon x:Name="BadgeIcon" FontSize="26" Foreground="White" />
+                </Grid>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="NameText" Style="{StaticResource TitleTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="SubtitleText" Style="{StaticResource SecondaryTextStyle}" />
+                </StackPanel>
+                <CommandBar Grid.Column="2" DefaultLabelPosition="Right" Background="Transparent" VerticalAlignment="Center">
+                    <AppBarButton Label="Edit" Click="OnEdit">
+                        <AppBarButton.Icon><FontIcon Glyph="&#xE70F;" /></AppBarButton.Icon>
+                    </AppBarButton>
+                    <CommandBar.SecondaryCommands>
+                        <AppBarButton x:Name="ArchiveButton" Label="Archive" Click="OnArchive">
+                            <AppBarButton.Icon><FontIcon Glyph="&#xE7B8;" /></AppBarButton.Icon>
+                        </AppBarButton>
+                        <AppBarButton Label="Delete" Click="OnDelete">
+                            <AppBarButton.Icon><FontIcon Glyph="&#xE74D;" /></AppBarButton.Icon>
+                        </AppBarButton>
+                    </CommandBar.SecondaryCommands>
+                </CommandBar>
+            </Grid>
+
+            <InfoBar x:Name="ArchivedBar" Severity="Informational" IsOpen="False" IsClosable="False"
+                     Title="Archived" Message="This habit is hidden from Today and from partners." Margin="0,8,0,0">
+                <InfoBar.ActionButton>
+                    <Button Content="Restore" Click="OnArchive" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+
+            <!-- Stats -->
+            <Grid x:Name="StatsGrid" ColumnSpacing="8" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="CurrentStreakText" Style="{StaticResource StatValueStyle}" />
+                        <TextBlock x:Name="CurrentStreakLabel" Style="{StaticResource SecondaryTextStyle}" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="BestStreakText" Style="{StaticResource StatValueStyle}" />
+                        <TextBlock x:Name="BestStreakLabel" Style="{StaticResource SecondaryTextStyle}" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="TotalText" Style="{StaticResource StatValueStyle}" />
+                        <TextBlock Text="Times completed" Style="{StaticResource SecondaryTextStyle}" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="MonthText" Style="{StaticResource StatValueStyle}" />
+                        <TextBlock x:Name="MonthLabel" Style="{StaticResource SecondaryTextStyle}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <TextBlock Text="Calendar" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch">
+                <StackPanel>
+                    <controls:MonthCalendar x:Name="Calendar" MaxWidth="420" HorizontalAlignment="Left" />
+                    <TextBlock x:Name="CalendarHint" Style="{StaticResource SecondaryTextStyle}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="The past year" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource CardStyle}">
+                <controls:ContributionGraph x:Name="YearGraph" />
+            </Border>
+
+            <StackPanel x:Name="NotePanel" Visibility="Collapsed">
+                <TextBlock Text="Note" Style="{StaticResource SectionHeaderStyle}" />
+                <Border Style="{StaticResource CardStyle}">
+                    <TextBlock x:Name="NoteText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

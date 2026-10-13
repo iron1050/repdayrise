@@ -1,0 +1,67 @@
+<Page
+    x:Class="RepDayrise.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer>
+        <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Padding="{StaticResource PagePadding}">
+            <TextBlock Text="Settings" Style="{StaticResource PageTitleStyle}" />
+
+            <TextBlock Text="Appearance" Style="{StaticResource SectionHeaderStyle}" Margin="2,0,0,8" />
+            <Border Style="{StaticResource CardStyle}">
+                <RadioButtons x:Name="ThemeButtons" Header="Theme" SelectionChanged="OnThemeChanged">
+                    <x:String>Use system setting</x:String>
+                    <x:String>Light</x:String>
+                    <x:String>Dark</x:String>
+                </RadioButtons>
+            </Border>
+
+            <TextBlock Text="Habits" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="16">
+                    <ComboBox x:Name="WeekStartBox" Header="Week starts on" MinWidth="200" SelectionChanged="OnWeekStartChanged">
+                        <x:String>Monday</x:String>
+                        <x:String>Sunday</x:String>
+                    </ComboBox>
+                    <ToggleSwitch x:Name="CompletedSwitch" Header="Move finished habits to the bottom of Today" Toggled="OnCompletedToggled" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Notifications" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource CardStyle}">
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Reminders" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap"
+                                   Text="Set reminders on each habit. Windows controls whether they appear, including Do not disturb." />
+                    </StackPanel>
+                    <HyperlinkButton Grid.Column="1" Content="Notification settings" NavigateUri="ms-settings:notifications" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <TextBlock Text="About" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Image Source="ms-appx:///Assets/Square44x44Logo.targetsize-48.png" Width="40" Height="40" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="RepDayrise" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock x:Name="VersionText" Style="{StaticResource SecondaryTextStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap"
+                               Text="Your habits are stored only on this PC. To remove RepDayrise and its data, right-click it in Start and choose Uninstall." />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Open data folder" Click="OnOpenDataFolder" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap"
+                               Text="Inspired by the Dayrise habit app. An independent reimplementation made for learning, not affiliated with it." />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
