@@ -11,7 +11,7 @@ import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.domain.EntryMap
 import com.repdayrise.app.domain.HabitLogic
-import com.repdayrise.app.notifications.TimerNotifier
+import com.repdayrise.app.notifications.TimerLiveUpdates
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -142,30 +142,23 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun toggleTimer(habit: Habit, timer: ActiveTimer?) {
         val date = selectedDate.value
+        // The Live Update follows the timers table (see TimerLiveUpdates.follow).
         viewModelScope.launch {
-            if (timer == null || !timer.running) {
-                repo.startTimer(habit, date)
-                val t = repo.getTimer(habit.id)
-                if (t != null) TimerNotifier.show(container.context, habit, t.elapsedMs(), true)
-            } else {
-                repo.pauseTimer(habit.id)
-                val t = repo.getTimer(habit.id)
-                if (t != null) TimerNotifier.show(container.context, habit, t.elapsedMs(), false)
-            }
+            if (timer == null || !timer.running) repo.startTimer(habit, date) else repo.pauseTimer(habit.id)
         }
     }
 
     fun finishTimer(habit: Habit) {
         viewModelScope.launch {
             repo.finishTimer(habit)
-            TimerNotifier.dismiss(container.context)
+            TimerLiveUpdates.dismissAlert(container.context, habit.id)
         }
     }
 
     fun cancelTimer(habit: Habit) {
         viewModelScope.launch {
             repo.cancelTimer(habit.id)
-            TimerNotifier.dismiss(container.context)
+            TimerLiveUpdates.dismissAlert(container.context, habit.id)
         }
     }
 
