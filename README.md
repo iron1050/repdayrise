@@ -61,7 +61,12 @@ The unit tests cover streaks, schedules, progress, and what gets shared with par
 ```
 app/       Android application
 backend/   Cloudflare Worker for partner sharing
+windows/   Windows 11 application (C#, WinUI 3, MSIX)
 ```
+
+## Windows
+
+A native Windows version lives in [`windows/`](windows/README.md). It is built with C#, WinUI 3 and the Fluent design language, and installs as an MSIX with Start-menu uninstall. It shares the partner backend, so Android and Windows can follow each other.
 
 ## Status
 

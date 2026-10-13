@@ -23,7 +23,6 @@
     <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <GenerateTestArtifacts>false</GenerateTestArtifacts>
-    <AppxSymbolPackageEnabled>false</AppxSymbolPackageEnabled>
     <!-- Carry .NET and the Windows App SDK runtime inside the package, so installing needs nothing else. -->
     <SelfContained>true</SelfContained>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
