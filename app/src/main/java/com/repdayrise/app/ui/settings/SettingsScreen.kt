@@ -77,6 +77,14 @@ import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.GlassTopBar
 import com.repdayrise.app.ui.components.GlowCard
+import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Palette
+import com.repdayrise.app.ui.components.SkyPage
+import com.repdayrise.app.ui.components.GroupLabel
+import com.repdayrise.app.ui.components.BeadToggleRow
+import com.repdayrise.app.ui.components.BeadRow
 import com.repdayrise.app.ui.components.backdropSource
 import com.repdayrise.app.ui.components.dayriseBackground
 import com.repdayrise.app.ui.components.rememberBackdrop
@@ -144,113 +152,95 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     }
     LaunchedEffect(Unit) { if (viewModel.healthAvailable) healthCount = viewModel.healthGranted() }
     SystemBars()
-    val backdrop = rememberBackdrop()
 
-    Scaffold(
-        modifier = Modifier.dayriseBackground(),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        topBar = {
-            GlassTopBar(
-                backdrop = backdrop,
-                title = { Text("Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .backdropSource(backdrop)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(top = padding.calculateTopPadding(), bottom = 40.dp + padding.calculateBottomPadding()),
-        ) {
-            Group("Appearance") {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Theme", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        val modes = listOf(ThemeMode.SYSTEM to "System", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark")
-                        modes.forEachIndexed { i, (m, label) ->
-                            SegmentedButton(selected = settings.themeMode == m, onClick = { viewModel.setTheme(m) }, shape = SegmentedButtonDefaults.itemShape(i, modes.size), icon = {}) { Text(label) }
-                        }
-                    }
-                }
-                ToggleRow("Material You colours", "Tint the app with your wallpaper palette", settings.dynamicColor) { viewModel.setDynamic(it) }
-            }
-
-            Group("App icon") {
-                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    AppIcon.entries.forEach { icon ->
-                        val selected = settings.appIcon == icon
-                        Column(
-                            Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable { viewModel.setAppIcon(icon) }.padding(6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            IconPreview(icon, selected)
-                            Spacer(Modifier.height(6.dp))
-                            Text(icon.label, style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+    SkyPage(title = "Settings", subtitle = "Make it yours", onBack = onBack) {
+        Group("Appearance") {
+            Column(Modifier.padding(16.dp)) {
+                Text("Theme", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    val modes = listOf(ThemeMode.SYSTEM to "System", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark")
+                    modes.forEachIndexed { i, (m, label) ->
+                        SegmentedButton(selected = settings.themeMode == m, onClick = { viewModel.setTheme(m) }, shape = SegmentedButtonDefaults.itemShape(i, modes.size), icon = {}) { Text(label) }
                     }
                 }
             }
+            BeadToggleRow("Material You colours", "Tint the app with your wallpaper palette", Icons.Rounded.Palette, Color(0xFFB07CF0), settings.dynamicColor) { viewModel.setDynamic(it) }
+        }
 
-            Group("Habits") {
-                ToggleRow("Week starts on Monday", "Affects weekly goals, streaks and calendars", settings.weekStartsMonday) { viewModel.setWeekStartsMonday(it) }
-                ToggleRow("Move completed to the bottom", "Keep what's left front and centre", settings.completedToBottom) { viewModel.setCompletedToBottom(it) }
-                ToggleRow("Haptics", "A gentle tap when you complete a habit", settings.haptics) { viewModel.setHaptics(it) }
-                NavRow("Hall of Fame", "Habits you've completed and retired", Icons.Rounded.EmojiEvents, onOpenHallOfFame)
+        Group("App icon") {
+            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                AppIcon.entries.forEach { icon ->
+                    val selected = settings.appIcon == icon
+                    Column(
+                        Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable { viewModel.setAppIcon(icon) }.padding(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        IconPreview(icon, selected)
+                        Spacer(Modifier.height(6.dp))
+                        Text(icon.label, style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
+        }
 
-            Group("Partners") {
-                NavRow("Accountability partners", "Share your list, or follow someone else's", Icons.Rounded.Group, onOpenPartners)
+        Group("Habits") {
+            BeadToggleRow("Week starts on Monday", "Affects weekly goals, streaks and calendars", Icons.Rounded.CalendarMonth, Color(0xFF4FA3E3), settings.weekStartsMonday) { viewModel.setWeekStartsMonday(it) }
+            BeadToggleRow("Move completed to the bottom", "Keep what's left front and centre", Icons.Rounded.CheckCircle, Color(0xFF4CC28E), settings.completedToBottom) { viewModel.setCompletedToBottom(it) }
+            BeadToggleRow("Haptics", "A gentle tap when you complete a habit", Icons.Rounded.Vibration, Color(0xFFFFB020), settings.haptics) { viewModel.setHaptics(it) }
+            BeadRow("Hall of Fame", "Habits you've completed and retired", Icons.Rounded.EmojiEvents, Color(0xFFFFC14D), onClick = onOpenHallOfFame)
+        }
+
+        Group("Partners") {
+            BeadRow("Accountability partners", "Share your list, or follow someone else's", Icons.Rounded.Group, Color(0xFFF06AA8), onClick = onOpenPartners)
+        }
+
+        Group("Reminders") {
+            NavRow(
+                "Notifications",
+                if (notifGranted) "Allowed" else "Tap to allow reminders",
+                Icons.Rounded.Notifications,
+                Color(0xFFFF8A3D),
+            ) {
+                if (!notifGranted) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
             }
+            NavRow(
+                "Exact timing",
+                if (exactAlarms) "Reminders fire on the minute" else "Allow exact alarms so reminders are punctual",
+                Icons.Rounded.Restore,
+                Color(0xFF7C6CF0),
+            ) {
+                if (!exactAlarms) context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
+            }
+        }
 
-            Group("Reminders") {
+        Group("Health Connect") {
+            if (viewModel.healthAvailable) {
                 NavRow(
-                    "Notifications",
-                    if (notifGranted) "Allowed" else "Tap to allow reminders",
-                    Icons.Rounded.Notifications,
-                ) {
-                    if (!notifGranted) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-                }
-                NavRow(
-                    "Exact timing",
-                    if (exactAlarms) "Reminders fire on the minute" else "Allow exact alarms so reminders are punctual",
-                    Icons.Rounded.Restore,
-                ) {
-                    if (!exactAlarms) context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
-                }
+                    "Sync with Health Connect",
+                    when {
+                        healthCount < 0 -> "Checking…"
+                        healthCount == 0 -> "Auto-track steps, water, sleep, exercise and more"
+                        else -> "$healthCount data types connected"
+                    },
+                    Icons.Rounded.Favorite,
+                    Color(0xFFFF5A7A),
+                ) { healthLauncher.launch(viewModel.allHealthPermissions) }
+            } else {
+                Text(
+                    "Health Connect isn't available on this device.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp),
+                )
             }
+        }
 
-            Group("Health Connect") {
-                if (viewModel.healthAvailable) {
-                    NavRow(
-                        "Sync with Health Connect",
-                        when {
-                            healthCount < 0 -> "Checking…"
-                            healthCount == 0 -> "Auto-track steps, water, sleep, exercise and more"
-                            else -> "$healthCount data types connected"
-                        },
-                        Icons.Rounded.Favorite,
-                    ) { healthLauncher.launch(viewModel.allHealthPermissions) }
-                } else {
-                    Text(
-                        "Health Connect isn't available on this device.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp),
-                    )
-                }
-            }
-
-            Group("About") {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Dayrise for Android", style = MaterialTheme.typography.titleSmall)
-                    Text("Version ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0"} · Android ${Build.VERSION.RELEASE}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(6.dp))
-                    Text("Complete your habits and watch the sun rise. Everything stays on your device unless you choose to share your list with a partner.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+        Group("About") {
+            Column(Modifier.padding(16.dp)) {
+                Text("Dayrise for Android", style = MaterialTheme.typography.titleSmall)
+                Text("Version ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0"} · Android ${Build.VERSION.RELEASE}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                Text("Complete your habits and watch the sun rise. Everything stays on your device unless you choose to share your list with a partner.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -282,7 +272,7 @@ private fun IconPreview(icon: AppIcon, selected: Boolean) {
 
 @Composable
 private fun Group(title: String, content: @Composable () -> Unit) {
-    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp))
+    GroupLabel(title)
     GlowCard {
         Column { content() }
     }
@@ -290,34 +280,8 @@ private fun Group(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@Composable
-private fun NavRow(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+private fun NavRow(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, accent: Color, onClick: () -> Unit) {
+    BeadRow(title, subtitle, icon, accent, onClick = onClick)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -325,48 +289,26 @@ private fun NavRow(title: String, subtitle: String, icon: androidx.compose.ui.gr
 fun HallOfFameScreen(viewModel: HallOfFameViewModel, onBack: () -> Unit, onOpenHabit: (Long) -> Unit) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<Habit?>(null) }
-    val backdrop = rememberBackdrop()
-    SystemBars()
-    Scaffold(
-        modifier = Modifier.dayriseBackground(),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        topBar = {
-            GlassTopBar(
-                backdrop = backdrop,
-                title = { Text("Hall of Fame") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .backdropSource(backdrop)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(top = padding.calculateTopPadding(), bottom = 32.dp + padding.calculateBottomPadding()),
-        ) {
-            if (entries.isEmpty()) {
-                Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.EmojiEvents, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(56.dp))
-                    Spacer(Modifier.height(12.dp))
-                    Text("Nothing retired yet", style = MaterialTheme.typography.titleLarge)
-                    Text("When a habit becomes second nature, move it here to keep its record.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                }
+    SkyPage(title = "Hall of Fame", subtitle = "Habits you've retired", onBack = onBack) {
+        if (entries.isEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Rounded.EmojiEvents, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(56.dp))
+                Spacer(Modifier.height(12.dp))
+                Text("Nothing retired yet", style = MaterialTheme.typography.titleLarge)
+                Text("When a habit becomes second nature, move it here to keep its record.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
             }
-            entries.forEach { e ->
-                GlowCard(glow = HabitColors.of(e.habit.colorIndex), modifier = Modifier.padding(vertical = 5.dp), onClick = { onOpenHabit(e.habit.id) }) {
-                    Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconBadge(HabitIcons[e.habit.icon], HabitColors.of(e.habit.colorIndex), filled = true)
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(e.habit.name, style = MaterialTheme.typography.titleMedium)
-                            Text("Best ${e.bestStreak} ${e.unit} · ${e.totalDays} total days", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = { viewModel.restore(e.habit.id) }) { Icon(Icons.Rounded.Restore, contentDescription = "Restore") }
-                        IconButton(onClick = { confirmDelete = e.habit }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        entries.forEach { e ->
+            GlowCard(glow = HabitColors.of(e.habit.colorIndex), modifier = Modifier.padding(vertical = 5.dp), onClick = { onOpenHabit(e.habit.id) }) {
+                Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBadge(HabitIcons[e.habit.icon], HabitColors.of(e.habit.colorIndex), filled = true)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(e.habit.name, style = MaterialTheme.typography.titleMedium)
+                        Text("Best ${e.bestStreak} ${e.unit} · ${e.totalDays} total days", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    IconButton(onClick = { viewModel.restore(e.habit.id) }) { Icon(Icons.Rounded.Restore, contentDescription = "Restore") }
+                    IconButton(onClick = { confirmDelete = e.habit }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }

@@ -78,6 +78,7 @@ import com.repdayrise.app.data.sharing.Partner
 import com.repdayrise.app.data.sharing.SharingRepository
 import com.repdayrise.app.ui.components.GlassTopBar
 import com.repdayrise.app.ui.components.GlowCard
+import com.repdayrise.app.ui.components.SkyPage
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.MiniSunrise
@@ -134,7 +135,6 @@ private sealed interface PartnersDialog {
 fun PartnersScreen(viewModel: PartnersViewModel, joinCode: String?, onBack: () -> Unit, onOpenPartner: (String) -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val backdrop = rememberBackdrop()
     val snackbar = remember { SnackbarHostState() }
     // An invite link opens straight into the follow dialog, once.
     var dialog by remember { mutableStateOf<PartnersDialog?>(null) }
@@ -149,118 +149,102 @@ fun PartnersScreen(viewModel: PartnersViewModel, joinCode: String?, onBack: () -
     val hasServer = state.serverUrl.isNotBlank()
     val outgoing = state.sharing.outgoing
 
-    Scaffold(
-        modifier = Modifier.dayriseBackground(),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
+    SkyPage(
+        title = "Partners",
+        subtitle = "Rise together",
+        onBack = onBack,
+        actions = { if (hasServer) RefreshAction(state.busy) { viewModel.refresh() } },
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            GlassTopBar(
-                backdrop = backdrop,
-                title = { Text("Partners") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-                actions = { if (hasServer) RefreshAction(state.busy) { viewModel.refresh() } },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .backdropSource(backdrop)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(top = padding.calculateTopPadding() + 4.dp, bottom = 40.dp + padding.calculateBottomPadding()),
-        ) {
-            if (!hasServer) {
-                Intro(
-                    icon = Icons.Rounded.Dns,
-                    title = "Connect a server",
-                    body = "Sharing runs on a tiny server you control. Deploy the one in this project's backend folder, then add its address here.",
-                ) { PillButton("Add server address", onClick = { dialog = PartnersDialog.Server }) }
-                Spacer(Modifier.height(20.dp))
-            }
+    ) {
+        if (!hasServer) {
+            Intro(
+                icon = Icons.Rounded.Dns,
+                title = "Connect a server",
+                body = "Sharing runs on a tiny server you control. Deploy the one in this project's backend folder, then add its address here.",
+            ) { PillButton("Add server address", onClick = { dialog = PartnersDialog.Server }) }
+            Spacer(Modifier.height(20.dp))
+        }
 
-            SectionTitle("Your list")
-            Spacer(Modifier.height(10.dp))
-            if (outgoing == null) {
-                Intro(
-                    icon = Icons.Rounded.WbTwilight,
-                    title = "Rise together",
-                    body = "Give someone you trust a code and they can watch your sunrise climb. They see your habits and progress, never your notes or reminders.",
-                ) { PillButton("Share my habits", onClick = { dialog = PartnersDialog.Share }, icon = Icons.Rounded.IosShare, enabled = hasServer && !state.busy) }
-            } else {
-                OutgoingCard(
-                    outgoing = outgoing,
-                    state = state,
-                    onCopy = {
-                        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Dayrise invite code", outgoing.code))
-                    },
-                    onInvite = { context.shareInvite(outgoing) },
-                    onRemove = { dialog = PartnersDialog.RemovePartner(it) },
-                    onToggleHabit = viewModel::setHabitShared,
-                    onNewCode = { dialog = PartnersDialog.NewCode },
-                    onStop = { dialog = PartnersDialog.StopSharing },
+        SectionTitle("Your list")
+        Spacer(Modifier.height(10.dp))
+        if (outgoing == null) {
+            Intro(
+                icon = Icons.Rounded.WbTwilight,
+                title = "Rise together",
+                body = "Give someone you trust a code and they can watch your sunrise climb. They see your habits and progress, never your notes or reminders.",
+            ) { PillButton("Share my habits", onClick = { dialog = PartnersDialog.Share }, icon = Icons.Rounded.IosShare, enabled = hasServer && !state.busy) }
+        } else {
+            OutgoingCard(
+                outgoing = outgoing,
+                state = state,
+                onCopy = {
+                    context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Dayrise invite code", outgoing.code))
+                },
+                onInvite = { context.shareInvite(outgoing) },
+                onRemove = { dialog = PartnersDialog.RemovePartner(it) },
+                onToggleHabit = viewModel::setHabitShared,
+                onNewCode = { dialog = PartnersDialog.NewCode },
+                onStop = { dialog = PartnersDialog.StopSharing },
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+        SectionTitle("Following")
+        Spacer(Modifier.height(10.dp))
+        if (state.cards.isEmpty()) {
+            GlowCard {
+                Text(
+                    "When a partner sends you their code, their day shows up here.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                 )
             }
+        }
+        state.cards.forEach { card ->
+            GlowCard(modifier = Modifier.padding(bottom = 10.dp), glow = MaterialTheme.colorScheme.primary, onClick = { onOpenPartner(card.shareId) }) {
+                Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(46.dp).clip(CircleShape)) { MiniSunrise(progress = card.progress, date = state.today, modifier = Modifier.fillMaxSize()) }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(card.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            when {
+                                card.ended -> "No longer shared with you"
+                                !card.hasData -> "Waiting for their first sync"
+                                card.total == 0 -> "Nothing scheduled today · ${relativeTime(card.updatedAt)}"
+                                else -> "${card.done} of ${card.total} today · ${relativeTime(card.updatedAt)}"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (card.ended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (card.hasData && !card.ended) {
+                        Text("${(card.progress * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = { dialog = PartnersDialog.Unfollow(card) }) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Stop following ${card.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(if (state.cards.isEmpty()) 12.dp else 2.dp))
+        FilledTonalButton(onClick = { dialog = PartnersDialog.Follow("") }, enabled = hasServer && !state.busy, shape = CircleShape) {
+            Icon(Icons.Rounded.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Follow with a code")
+        }
 
+        if (hasServer) {
             Spacer(Modifier.height(24.dp))
-            SectionTitle("Following")
-            Spacer(Modifier.height(10.dp))
-            if (state.cards.isEmpty()) {
-                GlowCard {
-                    Text(
-                        "When a partner sends you their code, their day shows up here.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    )
-                }
-            }
-            state.cards.forEach { card ->
-                GlowCard(modifier = Modifier.padding(bottom = 10.dp), glow = MaterialTheme.colorScheme.primary, onClick = { onOpenPartner(card.shareId) }) {
-                    Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(46.dp).clip(CircleShape)) { MiniSunrise(progress = card.progress, date = state.today, modifier = Modifier.fillMaxSize()) }
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(card.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                when {
-                                    card.ended -> "No longer shared with you"
-                                    !card.hasData -> "Waiting for their first sync"
-                                    card.total == 0 -> "Nothing scheduled today · ${relativeTime(card.updatedAt)}"
-                                    else -> "${card.done} of ${card.total} today · ${relativeTime(card.updatedAt)}"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (card.ended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        if (card.hasData && !card.ended) {
-                            Text("${(card.progress * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                        }
-                        IconButton(onClick = { dialog = PartnersDialog.Unfollow(card) }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Stop following ${card.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+            GlowCard(onClick = { dialog = PartnersDialog.Server }) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Server", style = MaterialTheme.typography.titleSmall)
+                        Text(state.serverUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                }
-            }
-            Spacer(Modifier.height(if (state.cards.isEmpty()) 12.dp else 2.dp))
-            FilledTonalButton(onClick = { dialog = PartnersDialog.Follow("") }, enabled = hasServer && !state.busy, shape = CircleShape) {
-                Icon(Icons.Rounded.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Follow with a code")
-            }
-
-            if (hasServer) {
-                Spacer(Modifier.height(24.dp))
-                GlowCard(onClick = { dialog = PartnersDialog.Server }) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Server", style = MaterialTheme.typography.titleSmall)
-                            Text(state.serverUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
