@@ -10,6 +10,7 @@ import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.repdayrise.app.data.model.HealthSource
 import java.time.LocalDate
@@ -31,7 +32,7 @@ class HealthConnectManager(private val context: Context) {
         HealthSource.DISTANCE -> HealthPermission.getReadPermission(DistanceRecord::class)
         HealthSource.WATER -> HealthPermission.getReadPermission(HydrationRecord::class)
         HealthSource.SLEEP -> HealthPermission.getReadPermission(SleepSessionRecord::class)
-        HealthSource.EXERCISE -> HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        HealthSource.EXERCISE, HealthSource.LIFTING -> HealthPermission.getReadPermission(ExerciseSessionRecord::class)
         HealthSource.CALORIES -> HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class)
     }
 
@@ -67,8 +68,33 @@ class HealthConnectManager(private val context: Context) {
                 HealthSource.WATER -> c.aggregate(AggregateRequest(setOf(HydrationRecord.VOLUME_TOTAL), filter))[HydrationRecord.VOLUME_TOTAL]?.inMilliliters
                 HealthSource.SLEEP -> c.aggregate(AggregateRequest(setOf(SleepSessionRecord.SLEEP_DURATION_TOTAL), filter))[SleepSessionRecord.SLEEP_DURATION_TOTAL]?.toMinutes()?.div(60.0)
                 HealthSource.EXERCISE -> c.aggregate(AggregateRequest(setOf(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL), filter))[ExerciseSessionRecord.EXERCISE_DURATION_TOTAL]?.toMinutes()?.toDouble()
+                HealthSource.LIFTING -> liftingSessions(date, date).getOrDefault(date, 0).toDouble()
                 HealthSource.CALORIES -> c.aggregate(AggregateRequest(setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL), filter))[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
             }
         }.getOrNull()
+    }
+
+    /**
+     * Counts lifting sessions (strength training / weightlifting) per local day from [from] to [to] inclusive.
+     * Records from different apps that start within 20 minutes of each other count as one session, since a watch and a
+     * logging app often both write the same workout.
+     */
+    suspend fun liftingSessions(from: LocalDate, to: LocalDate): Map<LocalDate, Int> {
+        val c = client ?: return emptyMap()
+        val zone = java.time.ZoneId.systemDefault()
+        val filter = TimeRangeFilter.between(from.atStartOfDay(zone).toInstant(), to.plusDays(1).atStartOfDay(zone).toInstant())
+        val records = runCatching { c.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, filter)).records }.getOrNull() ?: return emptyMap()
+        val lifting = records
+            .filter { it.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING || it.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING }
+            .sortedBy { it.startTime }
+        val counted = ArrayList<java.time.Instant>()
+        val perDay = HashMap<LocalDate, Int>()
+        for (r in lifting) {
+            if (counted.any { kotlin.math.abs(java.time.Duration.between(it, r.startTime).toMinutes()) < 20 }) continue
+            counted += r.startTime
+            val day = r.startTime.atZone(r.startZoneOffset ?: zone.rules.getOffset(r.startTime)).toLocalDate()
+            perDay[day] = (perDay[day] ?: 0) + 1
+        }
+        return perDay
     }
 }

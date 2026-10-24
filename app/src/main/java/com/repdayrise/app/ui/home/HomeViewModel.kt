@@ -147,29 +147,22 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     fun toggleTimer(habit: Habit, timer: ActiveTimer?) {
         val date = selectedDate.value
         viewModelScope.launch {
-            if (timer == null || !timer.running) {
-                repo.startTimer(habit, date)
-                val t = repo.getTimer(habit.id)
-                if (t != null) TimerNotifier.show(container.context, habit, t.elapsedMs(), true)
-            } else {
-                repo.pauseTimer(habit.id)
-                val t = repo.getTimer(habit.id)
-                if (t != null) TimerNotifier.show(container.context, habit, t.elapsedMs(), false)
-            }
+            if (timer == null || !timer.running) repo.startTimer(habit, date) else repo.pauseTimer(habit.id)
+            TimerNotifier.sync(container, habit.id)
         }
     }
 
     fun finishTimer(habit: Habit) {
         viewModelScope.launch {
             repo.finishTimer(habit)
-            TimerNotifier.dismiss(container.context)
+            TimerNotifier.sync(container, habit.id)
         }
     }
 
     fun cancelTimer(habit: Habit) {
         viewModelScope.launch {
             repo.cancelTimer(habit.id)
-            TimerNotifier.dismiss(container.context)
+            TimerNotifier.sync(container, habit.id)
         }
     }
 

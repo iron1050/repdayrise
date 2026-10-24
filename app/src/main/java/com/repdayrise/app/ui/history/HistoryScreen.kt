@@ -1,5 +1,6 @@
 package com.repdayrise.app.ui.history
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.SouthEast
 import androidx.compose.material.icons.rounded.WbTwilight
@@ -47,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,11 +58,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.repdayrise.app.AppContainer
 import com.repdayrise.app.data.model.Habit
+import com.repdayrise.app.data.model.HealthSource
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.ContributionGraph
 import com.repdayrise.app.ui.components.DashDay
@@ -91,6 +97,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import java.time.DayOfWeek
@@ -132,6 +140,17 @@ data class DashboardState(
     val topRows: List<TopRow> = emptyList(),
 )
 
+/** Weekly lifting sessions read from Health Connect. */
+data class LiftingState(
+    val available: Boolean = false,
+    val granted: Boolean = false,
+    val count: Int = 0,
+    val lastWeek: Int = 0,
+    val days: List<Boolean> = List(7) { false },
+    val labels: List<String> = List(7) { "" },
+    val todayIndex: Int = -1,
+)
+
 data class HistoryUiState(
     val month: YearMonth = YearMonth.now(),
     val days: Map<LocalDate, HistoryDay> = emptyMap(),
@@ -143,6 +162,7 @@ data class HistoryUiState(
     val heatmap: Map<Long, Float> = emptyMap(),
     val yearPerfect: Int = 0,
     val dash: DashboardState = DashboardState(),
+    val lifting: LiftingState = LiftingState(),
 )
 
 private data class DashControl(
@@ -158,6 +178,33 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
     private val selected = MutableStateFlow<LocalDate?>(null)
     private val mode = MutableStateFlow(LeaderboardMode.STREAK)
     private val control = MutableStateFlow(DashControl())
+    private val lifting = MutableStateFlow(LiftingState())
+    private val health = container.health
+    private val settings = container.settings
+
+    val liftingPermission: String? = health.permissionFor(HealthSource.LIFTING)
+
+    init { refreshLifting() }
+
+    /** Re-reads this week's and last week's lifting sessions; call after the permission prompt and on resume. */
+    fun refreshLifting() {
+        viewModelScope.launch {
+            if (!health.isAvailable) { lifting.value = LiftingState(); return@launch }
+            val granted = health.hasPermission(HealthSource.LIFTING)
+            val logic = HabitLogic(if (settings.settings.first().weekStartsMonday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY)
+            val today = LocalDate.now()
+            val week = logic.weekDays(today)
+            val sessions = if (granted) health.liftingSessions(week.first().minusWeeks(1), week.last()) else emptyMap()
+            lifting.value = LiftingState(
+                available = true, granted = granted,
+                count = week.sumOf { sessions[it] ?: 0 },
+                lastWeek = week.sumOf { sessions[it.minusWeeks(1)] ?: 0 },
+                days = week.map { (sessions[it] ?: 0) > 0 },
+                labels = week.map { it.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()) },
+                todayIndex = week.indexOf(today),
+            )
+        }
+    }
 
     val uiState: StateFlow<HistoryUiState> = combine(repo.habits, repo.entries, container.settings.settings, month, mode) { habits, entries, settings, month, mode ->
         val logic = HabitLogic(if (settings.weekStartsMonday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY)
@@ -179,6 +226,7 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
         )
     }.combine(selected) { p, sel -> p.copy(ui = p.ui.copy(selected = sel)) }
         .combine(control) { p, c -> p.ui.copy(dash = buildDash(p, c)) }
+        .combine(lifting) { ui, l -> ui.copy(lifting = l) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryUiState())
 
     private data class Partial(
@@ -260,6 +308,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
     val sky = rememberSkyState(dash.progress, dash.selectedDate)
     val backdrop = rememberBackdrop()
     SystemBars(lightStatusIcons = true)
+    val healthLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { viewModel.refreshLifting() }
 
     val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val heroHeight = statusPadding + 300.dp
@@ -359,6 +408,11 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                         }
                     }
 
+                    if (state.lifting.available) {
+                        Spacer(Modifier.height(12.dp))
+                        LiftingTile(state.lifting) { viewModel.liftingPermission?.let { healthLauncher.launch(setOf(it)) } }
+                    }
+
                     Spacer(Modifier.height(24.dp))
                     SectionTitle("Sunrise history")
                     Spacer(Modifier.height(10.dp))
@@ -399,6 +453,42 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                 DashSheet.MONTH -> MonthProgressSheet(dash, viewModel)
                 DashSheet.TOP -> TopHabitSheet(dash, viewModel)
             }
+        }
+    }
+}
+
+@Composable
+private fun LiftingTile(l: LiftingState, onConnect: () -> Unit) {
+    val accent = Color(0xFFFF6B6B)
+    DashTile("Lifting this week", Modifier.fillMaxWidth(), glow = accent) {
+        if (!l.granted) {
+            Text("Count your lifting sessions from Health Connect.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(10.dp))
+            Surface(onClick = onConnect, shape = CircleShape, color = accent.copy(alpha = 0.18f), contentColor = accent) {
+                Text("Connect Health Connect", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        } else {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("${l.count}", style = MaterialTheme.typography.displaySmall)
+                Spacer(Modifier.width(6.dp))
+                Text(if (l.count == 1) "session" else "sessions", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                l.days.forEachIndexed { i, lifted ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            Modifier.size(26.dp).clip(CircleShape)
+                                .then(if (lifted) Modifier.background(accent) else Modifier.border(1.5.dp, if (i == l.todayIndex) accent.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outlineVariant, CircleShape)),
+                            contentAlignment = Alignment.Center,
+                        ) { if (lifted) Icon(Icons.Rounded.FitnessCenter, null, tint = Color.White, modifier = Modifier.size(15.dp)) }
+                        Spacer(Modifier.height(4.dp))
+                        Text(l.labels[i], style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Last week: ${l.lastWeek}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

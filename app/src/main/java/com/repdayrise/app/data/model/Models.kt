@@ -15,6 +15,7 @@ enum class HealthSource(val label: String, val unit: String, val defaultGoal: Do
     SLEEP("Sleep", "hours", 8.0),
     EXERCISE("Exercise", "min", 30.0),
     CALORIES("Active calories", "kcal", 400.0),
+    LIFTING("Lifting sessions", "sessions", 1.0),
 }
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }

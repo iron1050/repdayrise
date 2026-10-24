@@ -90,7 +90,7 @@ class EditHabitViewModel(
             if (name.isBlank()) name = source.label
             icon = when (source) {
                 HealthSource.STEPS -> "walk"; HealthSource.DISTANCE -> "run"; HealthSource.WATER -> "water"
-                HealthSource.SLEEP -> "sleep"; HealthSource.EXERCISE -> "gym"; HealthSource.CALORIES -> "flame"; HealthSource.NONE -> icon
+                HealthSource.SLEEP -> "sleep"; HealthSource.EXERCISE -> "gym"; HealthSource.LIFTING -> "gym"; HealthSource.CALORIES -> "flame"; HealthSource.NONE -> icon
             }
         }
     }

@@ -372,11 +372,16 @@ private fun HeroOverlay(state: HomeUiState, statusPadding: Dp, stripOverlap: Dp,
                 Surface(
                     onClick = onToday,
                     shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.18f),
-                    contentColor = Color.White,
-                    modifier = Modifier.padding(top = 12.dp).glassBorder(CircleShape, alpha = 0.35f),
+                    color = Color.White.copy(alpha = 0.94f),
+                    contentColor = Color(0xFF14233B),
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.padding(top = 12.dp),
                 ) {
-                    Text("Back to today", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+                    Row(Modifier.padding(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.WbSunny, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFFF08A24))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Back to today", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
         }
