@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import com.repdayrise.app.data.DataChangeListener
+import com.repdayrise.app.data.DataBackup
 import com.repdayrise.app.data.HabitRepository
 import com.repdayrise.app.data.SettingsRepository
 import com.repdayrise.app.data.db.DayriseDatabase
@@ -51,6 +52,7 @@ class AppContainer(val context: Context) {
     val db: DayriseDatabase = DayriseDatabase.create(context)
     val settings = SettingsRepository(context)
     val repository = HabitRepository(db, appScope)
+    val backup = DataBackup(context, db, repository)
     val health = HealthConnectManager(context)
     val healthSync = HealthSync(repository, health)
     val reminderScheduler = ReminderScheduler(context)

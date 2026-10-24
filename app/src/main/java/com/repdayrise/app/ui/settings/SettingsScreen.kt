@@ -35,6 +35,11 @@ import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.FileUpload
+import android.widget.Toast
+import com.repdayrise.app.data.BackupException
+import com.repdayrise.app.data.BackupSummary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -55,6 +60,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,6 +122,28 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setWeekStartsMonday(monday: Boolean) = viewModelScope.launch { container.settings.setWeekStartsMonday(monday) }
     fun setCompletedToBottom(enabled: Boolean) = viewModelScope.launch { container.settings.setCompletedToBottom(enabled) }
     fun setHaptics(enabled: Boolean) = viewModelScope.launch { container.settings.setHaptics(enabled) }
+    /** Writes every habit, entry, group and reminder to [uri] as JSON. Returns a message for the user. */
+    suspend fun exportTo(uri: Uri): String = runCatching {
+        val json = container.backup.export()
+        container.context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(json.toByteArray()) }
+        "Backup saved"
+    }.getOrElse { "Couldn't save the backup: ${it.message}" }
+
+    /** Reads a backup and checks it without changing anything, so the user can confirm first. */
+    suspend fun readBackup(uri: Uri): Result<Pair<String, BackupSummary>> = runCatching {
+        val json = container.context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+        json to container.backup.inspect(json)
+    }
+
+    suspend fun importBackup(json: String): String = try {
+        val s = container.backup.import(json)
+        "Restored ${countLabel(s.habits, "habits")} and ${countLabel(s.entries, "entries")}"
+    } catch (e: BackupException) {
+        e.message ?: "Couldn't restore that backup"
+    } catch (e: Exception) {
+        "Couldn't restore that backup: ${e.message}"
+    }
+
     fun setAppIcon(icon: AppIcon) = viewModelScope.launch {
         container.settings.setAppIcon(icon)
         container.applyAppIcon(icon)
@@ -157,6 +185,35 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
         onPauseOrDispose { }
     }
     LaunchedEffect(Unit) { if (viewModel.healthAvailable) healthCount = viewModel.healthGranted() }
+    val scope = rememberCoroutineScope()
+    var pendingImport by remember { mutableStateOf<Pair<String, BackupSummary>?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch { Toast.makeText(context, viewModel.exportTo(uri), Toast.LENGTH_SHORT).show() }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            viewModel.readBackup(uri)
+                .onSuccess { pendingImport = it }
+                .onFailure { Toast.makeText(context, (it as? BackupException)?.message ?: "Couldn't read that file", Toast.LENGTH_LONG).show() }
+        }
+    }
+    pendingImport?.let { (json, summary) ->
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("Replace everything?") },
+            text = {
+                Text("This backup has ${countLabel(summary.habits, "habits")}, ${countLabel(summary.entries, "entries")} and ${countLabel(summary.groups, "groups")}. " +
+                    "Restoring deletes all the habits and history on this device first.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImport = null
+                    scope.launch { Toast.makeText(context, viewModel.importBackup(json), Toast.LENGTH_LONG).show() }
+                }) { Text("Replace") }
+            },
+            dismissButton = { TextButton(onClick = { pendingImport = null }) { Text("Cancel") } },
+        )
+    }
     SystemBars()
 
     SkyPage(title = "Settings", subtitle = "Make it yours", onBack = onBack) {
@@ -247,6 +304,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp),
                 )
             }
+        }
+
+        Group("Data") {
+            BeadRow("Export backup", "Save your habits and history to a file", Icons.Rounded.FileUpload, Color(0xFF4FA3E3),
+                onClick = { exportLauncher.launch("dayrise-${LocalDate.now()}.json") })
+            BeadRow("Import backup", "Replace what's here with a saved file", Icons.Rounded.FileDownload, Color(0xFF4CC28E),
+                onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) })
         }
 
         Group("About") {
