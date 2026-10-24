@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
-import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.SouthEast
 import androidx.compose.material.icons.rounded.WbTwilight
@@ -49,7 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,14 +57,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.repdayrise.app.AppContainer
 import com.repdayrise.app.data.model.Habit
-import com.repdayrise.app.data.model.HealthSource
 import com.repdayrise.app.data.model.countLabel
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.ContributionGraph
@@ -98,7 +94,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -141,21 +136,9 @@ data class DashboardState(
     val topRows: List<TopRow> = emptyList(),
 )
 
-/** Weekly lifting sessions read from Health Connect. */
-data class LiftingState(
-    val available: Boolean = false,
-    val granted: Boolean = false,
-    val count: Int = 0,
-    val lastWeek: Int = 0,
-    val days: List<Boolean> = List(7) { false },
-    val labels: List<String> = List(7) { "" },
-    val todayIndex: Int = -1,
-)
-
 data class HistoryUiState(
     val month: YearMonth = YearMonth.now(),
     val days: Map<LocalDate, HistoryDay> = emptyMap(),
-    val selected: LocalDate? = null,
     val leaderboard: List<LeaderEntry> = emptyList(),
     val mode: LeaderboardMode = LeaderboardMode.STREAK,
     val weekStart: DayOfWeek = DayOfWeek.MONDAY,
@@ -163,7 +146,6 @@ data class HistoryUiState(
     val heatmap: Map<Long, Float> = emptyMap(),
     val yearPerfect: Int = 0,
     val dash: DashboardState = DashboardState(),
-    val lifting: LiftingState = LiftingState(),
 )
 
 private data class DashControl(
@@ -176,37 +158,8 @@ private data class DashControl(
 class HistoryViewModel(container: AppContainer) : ViewModel() {
     private val repo = container.repository
     private val month = MutableStateFlow(YearMonth.now())
-    private val selected = MutableStateFlow<LocalDate?>(null)
     private val mode = MutableStateFlow(LeaderboardMode.STREAK)
     private val control = MutableStateFlow(DashControl())
-    private val lifting = MutableStateFlow(LiftingState())
-    private val health = container.health
-    private val settings = container.settings
-
-    val liftingPermission: String? = health.permissionFor(HealthSource.LIFTING)
-
-    init { refreshLifting() }
-
-    /** Re-reads this week's and last week's lifting sessions; call after the permission prompt and on resume. */
-    fun refreshLifting() {
-        viewModelScope.launch {
-            if (!health.isAvailable) { lifting.value = LiftingState(); return@launch }
-            val granted = health.hasPermission(HealthSource.LIFTING)
-            val logic = HabitLogic(if (settings.settings.first().weekStartsMonday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY)
-            val today = LocalDate.now()
-            val week = logic.weekDays(today)
-            val sessions = if (granted) health.liftingSessions(week.first().minusWeeks(1), week.last()) else emptyMap()
-            lifting.value = LiftingState(
-                available = true, granted = granted,
-                count = week.sumOf { sessions[it] ?: 0 },
-                lastWeek = week.sumOf { sessions[it.minusWeeks(1)] ?: 0 },
-                days = week.map { (sessions[it] ?: 0) > 0 },
-                labels = week.map { it.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()) },
-                todayIndex = week.indexOf(today),
-            )
-        }
-    }
-
     val uiState: StateFlow<HistoryUiState> = combine(repo.habits, repo.entries, container.settings.settings, month, mode) { habits, entries, settings, month, mode ->
         val logic = HabitLogic(if (settings.weekStartsMonday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY)
         val today = LocalDate.now()
@@ -222,12 +175,10 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
         val ranked = leaders.sortedByDescending { if (mode == LeaderboardMode.STREAK) it.bestStreakDays else it.totalDays }.take(10)
         val heatmap = logic.overallHeatmap(active, entries, logic.graphStart(today), today)
         Partial(
-            HistoryUiState(month, days, null, ranked, mode, logic.weekDays(today).first().dayOfWeek, today, heatmap, heatmap.values.count { it >= 0.999f }),
+            HistoryUiState(month, days, ranked, mode, logic.weekDays(today).first().dayOfWeek, today, heatmap, heatmap.values.count { it >= 0.999f }),
             logic, active, entries, leaders,
         )
-    }.combine(selected) { p, sel -> p.copy(ui = p.ui.copy(selected = sel)) }
-        .combine(control) { p, c -> p.ui.copy(dash = buildDash(p, c)) }
-        .combine(lifting) { ui, l -> ui.copy(lifting = l) }
+    }.combine(control) { p, c -> p.ui.copy(dash = buildDash(p, c)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryUiState())
 
     private data class Partial(
@@ -285,9 +236,8 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
         )
     }
 
-    fun previousMonth() { month.value = month.value.minusMonths(1); selected.value = null }
-    fun nextMonth() { if (month.value.isBefore(YearMonth.now())) { month.value = month.value.plusMonths(1); selected.value = null } }
-    fun select(date: LocalDate) { selected.value = if (selected.value == date) null else date }
+    fun previousMonth() { month.value = month.value.minusMonths(1) }
+    fun nextMonth() { if (month.value.isBefore(YearMonth.now())) month.value = month.value.plusMonths(1) }
     fun setMode(m: LeaderboardMode) { mode.value = m }
 
     fun selectDashDate(date: LocalDate) = control.update { it.copy(selectedDate = date) }
@@ -309,7 +259,8 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
     val sky = rememberSkyState(dash.progress, dash.selectedDate)
     val backdrop = rememberBackdrop()
     SystemBars(lightStatusIcons = true)
-    val healthLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { viewModel.refreshLifting() }
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
 
     val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val heroHeight = statusPadding + 300.dp
@@ -320,7 +271,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) { _ ->
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth()) {
                 // Hero: living sky, title and the glass progress pill.
                 Box(Modifier.fillMaxWidth().height(heroHeight)) {
@@ -403,21 +354,22 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                             Text("${dash.bestStreak}", style = MaterialTheme.typography.displaySmall)
                             Text(if (dash.bestStreak == 1) dash.bestStreakUnit.removeSuffix("s") else dash.bestStreakUnit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        DashTile("Total Days", Modifier.weight(1f).fillMaxHeight(), glow = MaterialTheme.colorScheme.secondary) {
+                        DashTile("Active Days", Modifier.weight(1f).fillMaxHeight(), glow = MaterialTheme.colorScheme.secondary) {
                             Text("${dash.totalDays}", style = MaterialTheme.typography.displaySmall)
                             Text(if (dash.totalDays == 1) "day" else "days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
-                    if (state.lifting.available) {
-                        Spacer(Modifier.height(12.dp))
-                        LiftingTile(state.lifting) { viewModel.liftingPermission?.let { healthLauncher.launch(setOf(it)) } }
-                    }
-
                     Spacer(Modifier.height(24.dp))
-                    SectionTitle("Sunrise history")
+                    SectionTitle("Calendar")
                     Spacer(Modifier.height(10.dp))
-                    CalendarSection(state, viewModel)
+                    CalendarSection(
+                        state = state,
+                        selectedDate = dash.selectedDate,
+                        onPrevious = { viewModel.previousMonth() },
+                        onNext = { viewModel.nextMonth() },
+                        onPick = { viewModel.selectDashDate(it); scope.launch { scroll.animateScrollTo(0) } },
+                    )
                     Spacer(Modifier.height(16.dp))
                     GlowCard(glow = MaterialTheme.colorScheme.primary) {
                         Column(Modifier.padding(16.dp)) {
@@ -454,42 +406,6 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                 DashSheet.MONTH -> MonthProgressSheet(dash, viewModel)
                 DashSheet.TOP -> TopHabitSheet(dash, viewModel)
             }
-        }
-    }
-}
-
-@Composable
-private fun LiftingTile(l: LiftingState, onConnect: () -> Unit) {
-    val accent = Color(0xFFFF6B6B)
-    DashTile("Lifting this week", Modifier.fillMaxWidth(), glow = accent) {
-        if (!l.granted) {
-            Text("Count your lifting sessions from Health Connect.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(10.dp))
-            Surface(onClick = onConnect, shape = CircleShape, color = accent.copy(alpha = 0.18f), contentColor = accent) {
-                Text("Connect Health Connect", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            }
-        } else {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("${l.count}", style = MaterialTheme.typography.displaySmall)
-                Spacer(Modifier.width(6.dp))
-                Text(if (l.count == 1) "session" else "sessions", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                l.days.forEachIndexed { i, lifted ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            Modifier.size(26.dp).clip(CircleShape)
-                                .then(if (lifted) Modifier.background(accent) else Modifier.border(1.5.dp, if (i == l.todayIndex) accent.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outlineVariant, CircleShape)),
-                            contentAlignment = Alignment.Center,
-                        ) { if (lifted) Icon(Icons.Rounded.FitnessCenter, null, tint = Color.White, modifier = Modifier.size(15.dp)) }
-                        Spacer(Modifier.height(4.dp))
-                        Text(l.labels[i], style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Text("Last week: ${l.lastWeek}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -597,20 +513,20 @@ private fun TopHabitSheet(dash: DashboardState, viewModel: HistoryViewModel) {
 }
 
 @Composable
-private fun CalendarSection(state: HistoryUiState, viewModel: HistoryViewModel) {
+private fun CalendarSection(state: HistoryUiState, selectedDate: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit, onPick: (LocalDate) -> Unit) {
     GlowCard {
         Column(Modifier.padding(14.dp)) {
             MonthCalendar(
                 month = state.month,
                 weekStart = state.weekStart,
-                onPrevious = { viewModel.previousMonth() },
-                onNext = { viewModel.nextMonth() },
+                onPrevious = onPrevious,
+                onNext = onNext,
                 canGoNext = state.month.isBefore(YearMonth.now()),
             ) { date ->
                 if (date == null) { Box(Modifier.size(42.dp)); return@MonthCalendar }
                 val day = state.days[date]
                 val future = date.isAfter(state.today)
-                val isSelected = state.selected == date
+                val isSelected = selectedDate == date
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         Modifier
@@ -618,7 +534,7 @@ private fun CalendarSection(state: HistoryUiState, viewModel: HistoryViewModel) 
                             .border(2.dp, if (isSelected) MaterialTheme.colorScheme.primary else if (date == state.today) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent, CircleShape)
                             .padding(3.dp)
                             .clip(CircleShape)
-                            .clickable(enabled = !future) { viewModel.select(date) }
+                            .clickable(enabled = !future) { onPick(date) }
                             .graphicsLayer { alpha = if (future) 0.35f else 1f },
                     ) {
                         MiniSunrise(progress = day?.progress ?: 0f, date = date, modifier = Modifier.fillMaxSize())
@@ -629,23 +545,6 @@ private fun CalendarSection(state: HistoryUiState, viewModel: HistoryViewModel) 
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (date == state.today) FontWeight.Bold else FontWeight.Medium,
                     )
-                }
-            }
-            val sel = state.selected?.let { state.days[it] }
-            if (sel != null) {
-                Spacer(Modifier.height(10.dp))
-                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(44.dp).clip(CircleShape)) { MiniSunrise(sel.progress, sel.date, Modifier.fillMaxSize()) }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(sel.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")), style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                if (sel.total == 0) "No habits were scheduled" else "${sel.done} of ${sel.total} habits · ${(sel.progress * 100).roundToInt()}%",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
                 }
             }
         }
