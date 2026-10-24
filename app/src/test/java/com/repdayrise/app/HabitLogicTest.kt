@@ -66,6 +66,17 @@ class HabitLogicTest {
     }
 
     @Test
+    fun liftingStyleWeeklyHabitCountsDaysWithASession() {
+        val habit = Habit(id = 1, name = "Lifting", type = HabitType.COUNT, goal = 1.0, unit = "sessions", scheduleType = ScheduleType.WEEKLY, timesPerPeriod = 3, startDate = today.minusDays(30))
+        val monday = logic.weekDays(today).first()
+        val e = entries(1, monday, monday.plusDays(2), value = 2.0) // two sessions on one day still count as one day
+        assertTrue(logic.isCompleted(habit, e, monday))
+        assertTrue(logic.isDue(habit, e, today))
+        val week = entries(1, monday, monday.plusDays(2), monday.plusDays(4))
+        assertEquals(3, logic.completedInRange(habit, week, monday, monday.plusDays(6)))
+    }
+
+    @Test
     fun moonPhaseIsInRange() {
         val p = MoonPhase.phase(today)
         assertTrue(p >= 0.0 && p < 1.0)
