@@ -97,6 +97,8 @@ import com.repdayrise.app.ui.components.dayriseBackground
 import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.SystemBars
+import com.repdayrise.app.ui.components.ColorPickerDialog
+import com.repdayrise.app.ui.components.CustomColorSwatch
 import com.repdayrise.app.ui.theme.HabitColors
 import java.time.DayOfWeek
 import java.time.Instant
@@ -112,9 +114,18 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
     val groups by viewModel.groups.collectAsStateWithLifecycle()
     val color = HabitColors.of(viewModel.colorIndex)
     var showTimePicker by remember { mutableStateOf(false) }
+    var pickerOpen by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var newGroupDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+
+    if (pickerOpen) {
+        ColorPickerDialog(
+            initial = color,
+            onDismiss = { pickerOpen = false },
+            onPick = { viewModel.colorIndex = HabitColors.custom(it); pickerOpen = false },
+        )
+    }
 
     LaunchedEffect(viewModel.saved, viewModel.deleted) { if (viewModel.saved || viewModel.deleted) onDone() }
     SystemBars()
@@ -186,6 +197,14 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
                     ) {
                         if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White)
                     }
+                }
+                item(key = "custom") {
+                    val custom = HabitColors.isCustom(viewModel.colorIndex)
+                    CustomColorSwatch(
+                        custom = if (custom) HabitColors.of(viewModel.colorIndex) else null,
+                        selected = custom,
+                        onClick = { pickerOpen = true },
+                    )
                 }
             }
             Spacer(Modifier.height(16.dp))
