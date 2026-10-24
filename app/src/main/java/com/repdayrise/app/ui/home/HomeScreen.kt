@@ -103,6 +103,8 @@ import com.repdayrise.app.ui.components.glassTint
 import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.rememberSkyState
 import com.repdayrise.app.ui.components.SunrisePill
+import com.repdayrise.app.ui.components.WeekTrail
+import androidx.compose.ui.text.style.TextDecoration
 import com.repdayrise.app.ui.theme.LocalIsDark
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.draw.drawBehind
@@ -249,6 +251,8 @@ fun HomeScreen(
                             val row = section.rows[i]
                             HabitRow(
                                 row = row,
+                                today = state.today,
+                                selectedDate = state.selectedDate,
                                 editable = !state.isFuture,
                                 modifier = Modifier
                                     .animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.8f))
@@ -559,6 +563,8 @@ private fun GroupHeader(name: String, done: Int, total: Int, collapsed: Boolean,
 @Composable
 fun HabitRow(
     row: HabitRowUi,
+    today: LocalDate,
+    selectedDate: LocalDate,
     editable: Boolean,
     onOpen: () -> Unit,
     onPrimary: () -> Unit,
@@ -590,15 +596,15 @@ fun HabitRow(
             .clip(rowShape)
             .drawBehind {
                 drawRect(surface)
-                if (doneMix > 0.01f) {
-                    drawRect(
-                        Brush.horizontalGradient(
-                            0f to color.copy(alpha = 0.22f * doneMix),
-                            0.6f to color.copy(alpha = 0.08f * doneMix),
-                            1f to color.copy(alpha = 0.03f * doneMix),
-                        ),
-                    )
-                }
+                val lift = if (dark) 0.14f else 0.10f
+                drawRect(
+                    Brush.linearGradient(
+                        0f to color.copy(alpha = lift + 0.12f * doneMix),
+                        0.65f to color.copy(alpha = lift * 0.35f + 0.05f * doneMix),
+                        1f to color.copy(alpha = 0.02f),
+                        start = Offset.Zero, end = Offset(size.width, size.height),
+                    ),
+                )
                 drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = if (dark) 0.035f else 0.5f), 1f to Color.Transparent, endY = size.height * 0.5f))
             }
             .glassBorder(rowShape, alpha = if (dark) 0.05f else 0.6f)
@@ -606,7 +612,8 @@ fun HabitRow(
         shape = rowShape,
         color = Color.Transparent,
     ) {
-        Row(Modifier.padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(HabitIcons[habit.icon], color, filled = row.completed)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -614,6 +621,7 @@ fun HabitRow(
                     habit.name,
                     style = MaterialTheme.typography.titleMedium,
                     color = if (row.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    textDecoration = if (row.completed) TextDecoration.LineThrough else null,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -631,9 +639,14 @@ fun HabitRow(
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (row.timer?.running == true) color else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (row.streak > 0) {
                         Spacer(Modifier.width(8.dp))
-                        Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(2.dp))
-                        Text("${row.streak}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Row(
+                            Modifier.clip(CircleShape).background(color.copy(alpha = 0.16f)).padding(start = 5.dp, end = 7.dp, top = 1.dp, bottom = 1.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(2.dp))
+                            Text("${row.streak}", style = MaterialTheme.typography.labelMedium, color = color)
+                        }
                     }
                 }
             }
@@ -651,6 +664,9 @@ fun HabitRow(
                 onLongClick = onLong,
                 modifier = Modifier.graphicsLayer { alpha = if (editable) 1f else 0.4f },
             )
+        }
+        Spacer(Modifier.height(10.dp))
+        WeekTrail(row.trail, today, color, selected = selectedDate, modifier = Modifier.padding(horizontal = 2.dp))
         }
     }
 }

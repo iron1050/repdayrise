@@ -9,6 +9,7 @@ import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.HabitGroup
 import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
+import com.repdayrise.app.domain.DayStatus
 import com.repdayrise.app.domain.EntryMap
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.notifications.TimerNotifier
@@ -31,6 +32,7 @@ data class HabitRowUi(
     val timer: ActiveTimer?,
     val periodDone: Int,
     val periodGoal: Int,
+    val trail: List<DayStatus>,
 )
 
 data class HomeSection(val group: HabitGroup?, val rows: List<HabitRowUi>, val collapsed: Boolean)
@@ -75,6 +77,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private fun build(s: Snapshot, date: LocalDate): HomeUiState {
         val logic = HabitLogic(if (s.settings.weekStartsMonday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY)
         val today = LocalDate.now()
+        val weekDates = logic.weekDays(date)
         val due = s.habits.filter { logic.isDue(it, s.entries, date) }
         val rows = due.map { habit ->
             val v = logic.value(s.entries, habit.id, date)
@@ -90,6 +93,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 timer = s.timers.firstOrNull { it.habitId == habit.id && it.date == date },
                 periodDone = if (habit.scheduleType == ScheduleType.DAILY) 0 else logic.completedInRange(habit, s.entries, pStart, pEnd),
                 periodGoal = habit.timesPerPeriod,
+                trail = weekDates.map { logic.dayStatus(habit, s.entries, it) },
             )
         }
         val sorted = if (s.settings.completedToBottom) rows.sortedBy { it.completed } else rows

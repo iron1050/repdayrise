@@ -56,6 +56,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.repdayrise.app.data.model.HabitType
+import com.repdayrise.app.domain.DayStatus
+import java.time.LocalDate
 import com.repdayrise.app.ui.theme.HabitColors
 import kotlin.math.max
 
@@ -268,6 +270,42 @@ fun BarChart(
                 }
                 if (n > 16) {
                     labels.filterIndexed { i, _ -> i % step == 0 }.forEach { Text(it, style = labelStyle, color = muted) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Seven-day trail shown under a habit row: filled bead when done, partial arc when in progress,
+ * hollow ring for a missed scheduled day, and a tiny dot for days that don't count.
+ */
+@Composable
+fun WeekTrail(days: List<DayStatus>, today: LocalDate, color: Color, modifier: Modifier = Modifier, selected: LocalDate? = null) {
+    Row(modifier, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        days.forEach { d ->
+            val future = d.date.isAfter(today)
+            Canvas(Modifier.weight(1f).height(16.dp)) {
+                val r = 6.dp.toPx()
+                val c = Offset(size.width / 2, size.height / 2)
+                val stroke = 2.dp.toPx()
+                when {
+                    d.completed -> {
+                        drawCircle(accentGradient(color), r, c)
+                    }
+                    !d.scheduled || future -> drawCircle(color.copy(alpha = if (future) 0.18f else 0.28f), 2.dp.toPx(), c)
+                    d.fraction > 0f -> {
+                        drawCircle(color.copy(alpha = 0.22f), r - stroke / 2, c, style = Stroke(stroke))
+                        drawArc(
+                            color, -90f, 360f * d.fraction, false,
+                            Offset(c.x - r + stroke / 2, c.y - r + stroke / 2), Size((r - stroke / 2) * 2, (r - stroke / 2) * 2),
+                            style = Stroke(stroke, cap = StrokeCap.Round),
+                        )
+                    }
+                    else -> drawCircle(color.copy(alpha = 0.32f), r - stroke / 2, c, style = Stroke(stroke))
+                }
+                if (d.date == selected) {
+                    drawCircle(color.copy(alpha = 0.9f), r + 2.5.dp.toPx(), c, style = Stroke(1.2.dp.toPx()))
                 }
             }
         }
