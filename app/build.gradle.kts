@@ -37,6 +37,13 @@ android {
                 enable = false
             }
         }
+        // Side-by-side test build: own app id, name and data, so it never overwrites the daily-driver install.
+        create("preview") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            matchingFallbacks += "debug"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
