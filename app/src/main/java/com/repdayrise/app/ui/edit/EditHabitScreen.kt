@@ -57,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -98,6 +99,7 @@ import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.SystemBars
 import com.repdayrise.app.ui.components.ColorPickerDialog
+import com.repdayrise.app.ui.components.GroupLabel
 import com.repdayrise.app.ui.components.CustomColorSwatch
 import com.repdayrise.app.ui.theme.HabitColors
 import java.time.DayOfWeek
@@ -134,6 +136,13 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
     val healthLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { }
 
     val backdrop = rememberBackdrop()
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = color, focusedLabelColor = color, cursorColor = color,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+    )
+    val segmentColors = SegmentedButtonDefaults.colors(
+        activeContainerColor = color.copy(alpha = 0.24f), activeContentColor = color, activeBorderColor = color.copy(alpha = 0.55f),
+    )
     Scaffold(
         modifier = Modifier.dayriseBackground(accent = color),
         containerColor = Color.Transparent,
@@ -164,47 +173,52 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
                 .padding(top = padding.calculateTopPadding() + 4.dp, bottom = 40.dp + padding.calculateBottomPadding()),
         ) {
             // Preview + name
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(HabitIcons[viewModel.icon], color, size = 60.dp, iconSize = 30.dp, filled = true)
-                Spacer(Modifier.width(14.dp))
-                OutlinedTextField(
-                    value = viewModel.name,
-                    onValueChange = { viewModel.name = it },
-                    label = { Text("Habit name") },
-                    placeholder = { Text("Morning walk") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.medium,
-                )
+            GlowCard(glow = color) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBadge(HabitIcons[viewModel.icon], color, size = 60.dp, iconSize = 30.dp, filled = true)
+                    Spacer(Modifier.width(14.dp))
+                    OutlinedTextField(
+                        value = viewModel.name,
+                        onValueChange = { viewModel.name = it },
+                        label = { Text("Habit name") },
+                        placeholder = { Text("Morning walk") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = fieldColors,
+                    )
+                }
             }
             Spacer(Modifier.height(20.dp))
 
             // Colours
             Label("Colour")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)) {
-                items(HabitColors.palette.size) { i ->
-                    val c = HabitColors.of(i)
-                    val selected = i == viewModel.colorIndex
-                    val scale by animateFloatAsState(if (selected) 1.15f else 1f, label = "c")
-                    Box(
-                        Modifier
-                            .size(38.dp)
-                            .scale(scale)
-                            .clip(CircleShape)
-                            .background(c)
-                            .clickable { viewModel.colorIndex = i },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White)
+            GlowCard(glow = color) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(14.dp)) {
+                    items(HabitColors.palette.size) { i ->
+                        val c = HabitColors.of(i)
+                        val selected = i == viewModel.colorIndex
+                        val scale by animateFloatAsState(if (selected) 1.15f else 1f, label = "c")
+                        Box(
+                            Modifier
+                                .size(38.dp)
+                                .scale(scale)
+                                .clip(CircleShape)
+                                .background(c)
+                                .clickable { viewModel.colorIndex = i },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White)
+                        }
                     }
-                }
-                item(key = "custom") {
-                    val custom = HabitColors.isCustom(viewModel.colorIndex)
-                    CustomColorSwatch(
-                        custom = if (custom) HabitColors.of(viewModel.colorIndex) else null,
-                        selected = custom,
-                        onClick = { pickerOpen = true },
-                    )
+                    item(key = "custom") {
+                        val custom = HabitColors.isCustom(viewModel.colorIndex)
+                        CustomColorSwatch(
+                            custom = if (custom) HabitColors.of(viewModel.colorIndex) else null,
+                            selected = custom,
+                            onClick = { pickerOpen = true },
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -239,57 +253,64 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
 
             // Type
             Label("Type")
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                val types = listOf(HabitType.CHECK to "Check", HabitType.COUNT to "Count", HabitType.TIMER to "Timer")
-                types.forEachIndexed { i, (t, label) ->
-                    SegmentedButton(
-                        selected = viewModel.type == t,
-                        onClick = { viewModel.changeType(t) },
-                        shape = SegmentedButtonDefaults.itemShape(i, types.size),
-                        icon = {},
-                    ) { Text(label) }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            AnimatedVisibility(visible = viewModel.type != HabitType.CHECK) {
-                Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = viewModel.goalText,
-                            onValueChange = { viewModel.goalText = it.filter { c -> c.isDigit() || c == '.' } },
-                            label = { Text(if (viewModel.type == HabitType.TIMER) "Goal (minutes)" else "Daily goal") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.medium,
-                        )
-                        if (viewModel.type == HabitType.COUNT) {
-                            OutlinedTextField(
-                                value = viewModel.unit,
-                                onValueChange = { viewModel.unit = it },
-                                label = { Text("Unit") },
-                                placeholder = { Text("glasses") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                                shape = MaterialTheme.shapes.medium,
-                            )
+            GlowCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        val types = listOf(HabitType.CHECK to "Check", HabitType.COUNT to "Count", HabitType.TIMER to "Timer")
+                        types.forEachIndexed { i, (t, label) ->
+                            SegmentedButton(
+                                selected = viewModel.type == t,
+                                onClick = { viewModel.changeType(t) },
+                                shape = SegmentedButtonDefaults.itemShape(i, types.size),
+                                icon = {},
+                                colors = segmentColors,
+                            ) { Text(label) }
                         }
                     }
-                    if (viewModel.type == HabitType.COUNT && viewModel.healthAvailable) {
-                        Spacer(Modifier.height(14.dp))
-                        Label("Auto-track with Health Connect")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            HealthSource.entries.forEach { src ->
-                                FilterChip(
-                                    selected = viewModel.healthSource == src,
-                                    onClick = {
-                                        viewModel.setHealth(src)
-                                        val perm = viewModel.healthPermission(src)
-                                        if (perm != null) healthLauncher.launch(setOf(perm))
-                                    },
-                                    label = { Text(src.label) },
-                                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = color.copy(alpha = 0.22f)),
+                    Spacer(Modifier.height(12.dp))
+                    AnimatedVisibility(visible = viewModel.type != HabitType.CHECK) {
+                        Column {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OutlinedTextField(
+                                    value = viewModel.goalText,
+                                    onValueChange = { viewModel.goalText = it.filter { c -> c.isDigit() || c == '.' } },
+                                    label = { Text(if (viewModel.type == HabitType.TIMER) "Goal (minutes)" else "Daily goal") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.weight(1f),
+                                    shape = MaterialTheme.shapes.medium,
+                                    colors = fieldColors,
                                 )
+                                if (viewModel.type == HabitType.COUNT) {
+                                    OutlinedTextField(
+                                        value = viewModel.unit,
+                                        onValueChange = { viewModel.unit = it },
+                                        label = { Text("Unit") },
+                                        placeholder = { Text("glasses") },
+                                        singleLine = true,
+                                        modifier = Modifier.weight(1f),
+                                        shape = MaterialTheme.shapes.medium,
+                                        colors = fieldColors,
+                                    )
+                                }
+                            }
+                            if (viewModel.type == HabitType.COUNT && viewModel.healthAvailable) {
+                                Spacer(Modifier.height(14.dp))
+                                Label("Auto-track with Health Connect")
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    HealthSource.entries.forEach { src ->
+                                        FilterChip(
+                                            selected = viewModel.healthSource == src,
+                                            onClick = {
+                                                viewModel.setHealth(src)
+                                                val perm = viewModel.healthPermission(src)
+                                                if (perm != null) healthLauncher.launch(setOf(perm))
+                                            },
+                                            label = { Text(src.label) },
+                                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = color.copy(alpha = 0.22f)),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -302,7 +323,7 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 val options = listOf(ScheduleType.DAILY to "Daily", ScheduleType.WEEKLY to "Weekly", ScheduleType.MONTHLY to "Monthly")
                 options.forEachIndexed { i, (s, label) ->
-                    SegmentedButton(selected = viewModel.scheduleType == s, onClick = { viewModel.scheduleType = s }, shape = SegmentedButtonDefaults.itemShape(i, options.size), icon = {}) { Text(label) }
+                    SegmentedButton(selected = viewModel.scheduleType == s, onClick = { viewModel.scheduleType = s }, shape = SegmentedButtonDefaults.itemShape(i, options.size), icon = {}, colors = segmentColors) { Text(label) }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -353,23 +374,27 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
 
             // Group
             Label("Group")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = viewModel.groupId == null, onClick = { viewModel.groupId = null }, label = { Text("None") })
-                groups.forEach { g ->
-                    FilterChip(
-                        selected = viewModel.groupId == g.id,
-                        onClick = { viewModel.groupId = g.id },
-                        label = { Text(g.name) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = color.copy(alpha = 0.22f)),
-                    )
+            GlowCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = viewModel.groupId == null, onClick = { viewModel.groupId = null }, label = { Text("None") })
+                        groups.forEach { g ->
+                            FilterChip(
+                                selected = viewModel.groupId == g.id,
+                                onClick = { viewModel.groupId = g.id },
+                                label = { Text(g.name) },
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = color.copy(alpha = 0.22f)),
+                            )
+                        }
+                        AssistChip(onClick = { newGroupDialog = true }, label = { Text("New group") }, leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(18.dp)) })
+                    }
                 }
-                AssistChip(onClick = { newGroupDialog = true }, label = { Text("New group") }, leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(18.dp)) })
             }
             Spacer(Modifier.height(20.dp))
 
             // Reminders
             Label("Reminders")
-            GlowCard {
+            GlowCard(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(vertical = 4.dp)) {
                     viewModel.reminders.forEachIndexed { index, r ->
                         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -426,6 +451,7 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
                         label = { Text("Why this matters (optional)") },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
                         shape = MaterialTheme.shapes.medium,
+                        colors = fieldColors,
                         minLines = 2,
                     )
                 }
@@ -490,5 +516,5 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
 
 @Composable
 private fun Label(text: String) {
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+    GroupLabel(text)
 }

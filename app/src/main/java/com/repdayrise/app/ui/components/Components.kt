@@ -174,12 +174,8 @@ fun HabitControl(
 
 @Composable
 fun StatTile(value: String, label: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary) {
-    GlowCard(modifier = modifier, shape = MaterialTheme.shapes.medium, glow = accent) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = accent, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(2.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        }
+    DashTile(label, modifier, glow = accent) {
+        Text(value, style = MaterialTheme.typography.headlineMedium, color = accent, textAlign = TextAlign.Center)
     }
 }
 

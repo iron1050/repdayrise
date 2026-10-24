@@ -1,6 +1,7 @@
 package com.repdayrise.app.ui.settings
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -78,6 +79,7 @@ import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.GlassTopBar
 import com.repdayrise.app.ui.components.GlowCard
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Palette
@@ -106,6 +108,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val allHealthPermissions: Set<String> get() = container.health.allPermissions
     suspend fun healthGranted(): Int = container.health.grantedPermissions().size
     fun canScheduleExact(): Boolean = container.reminderScheduler.canScheduleExact()
+    fun canPostLiveUpdates(): Boolean = Build.VERSION.SDK_INT < 36 || container.context.getSystemService(NotificationManager::class.java).canPostPromotedNotifications()
 
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { container.settings.setThemeMode(mode) }
     fun setDynamic(enabled: Boolean) = viewModelScope.launch { container.settings.setDynamicColor(enabled) }
@@ -140,6 +143,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var notifGranted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) }
+    var liveUpdates by remember { mutableStateOf(viewModel.canPostLiveUpdates()) }
     var exactAlarms by remember { mutableStateOf(viewModel.canScheduleExact()) }
     var healthCount by remember { mutableStateOf(-1) }
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifGranted = it }
@@ -148,6 +152,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     LifecycleResumeEffect(Unit) {
         notifGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         exactAlarms = viewModel.canScheduleExact()
+        liveUpdates = viewModel.canPostLiveUpdates()
         onPauseOrDispose { }
     }
     LaunchedEffect(Unit) { if (viewModel.healthAvailable) healthCount = viewModel.healthGranted() }
@@ -212,6 +217,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
                 Color(0xFF7C6CF0),
             ) {
                 if (!exactAlarms) context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
+            }
+            if (Build.VERSION.SDK_INT >= 36) {
+                NavRow(
+                    "Live updates",
+                    if (liveUpdates) "Timers show on your status bar and lock screen" else "Off. Tap to let timers appear as Live Updates",
+                    Icons.Rounded.WbTwilight,
+                    Color(0xFF3DD6C6),
+                ) { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }
             }
         }
 

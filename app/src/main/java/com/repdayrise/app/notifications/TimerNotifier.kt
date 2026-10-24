@@ -114,7 +114,8 @@ object TimerNotifier {
             // Live Updates (promoted ongoing notifications) arrived in Android 16 QPR1 (API 36.1).
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
                 builder.setRequestPromotedOngoing(true)
-                builder.setShortCriticalText(if (running) "%d:%02d".format(minutes, seconds) else "Paused")
+                // While running the chip counts up from the chronometer; a fixed string here would freeze at the first value.
+                if (!running) builder.setShortCriticalText("Paused")
             }
             if (running) builder.setWhen(System.currentTimeMillis() - elapsed).setUsesChronometer(true).setShowWhen(true)
             else builder.setShowWhen(false)
