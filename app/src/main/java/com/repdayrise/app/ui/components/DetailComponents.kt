@@ -114,7 +114,7 @@ fun completionLevel(fraction: Float): String = when {
 
 /** The gauge block under the calendar: a ring with a level, a tick bar for the month, and day counts. */
 @Composable
-fun MonthGaugeBlock(fraction: Float, color: Color, ticks: List<TickState>, done: Int, incomplete: Int, modifier: Modifier = Modifier) {
+fun MonthGaugeBlock(fraction: Float, color: Color, ticks: List<TickState>, done: Int, incomplete: Int?, modifier: Modifier = Modifier, goalNote: String? = null) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val off = MaterialTheme.colorScheme.surfaceContainerHighest
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -155,7 +155,7 @@ fun MonthGaugeBlock(fraction: Float, color: Color, ticks: List<TickState>, done:
                     Canvas(Modifier.fillMaxSize()) { drawCircle(muted.copy(alpha = 0.7f), style = Stroke(1.5.dp.toPx())) }
                 }
                 Spacer(Modifier.width(8.dp))
-                Text("$incomplete ${if (incomplete == 1) "day" else "days"} incomplete", style = MaterialTheme.typography.bodyMedium, color = muted)
+                Text(if (incomplete != null) "$incomplete ${if (incomplete == 1) "day" else "days"} incomplete" else goalNote.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = muted)
             }
         }
     }

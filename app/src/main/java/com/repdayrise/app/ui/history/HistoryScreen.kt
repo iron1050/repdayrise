@@ -66,6 +66,7 @@ import androidx.lifecycle.viewModelScope
 import com.repdayrise.app.AppContainer
 import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.HealthSource
+import com.repdayrise.app.data.model.countLabel
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.ContributionGraph
 import com.repdayrise.app.ui.components.DashDay
@@ -114,7 +115,7 @@ enum class LeaderboardMode(val label: String) { STREAK("Best streak"), TOTAL("To
 enum class DashSheet { MONTH, TOP }
 
 data class HistoryDay(val date: LocalDate, val progress: Float, val done: Int, val total: Int)
-data class LeaderEntry(val habit: Habit, val bestStreak: Int, val currentStreak: Int, val totalDays: Int, val unit: String)
+data class LeaderEntry(val habit: Habit, val bestStreak: Int, val bestStreakDays: Int, val currentStreak: Int, val totalDays: Int, val unit: String)
 data class HabitMonthRow(val habit: Habit, val percent: Int, val delta: Int?)
 data class TopRow(val habit: Habit, val days: Int)
 
@@ -216,9 +217,9 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
         }
         val leaders = habits.map { h ->
             val s = logic.stats(h, entries, today)
-            LeaderEntry(h, s.bestStreak, s.currentStreak, s.totalDays, s.streakUnit)
+            LeaderEntry(h, s.bestStreak, s.bestStreakDays, s.currentStreak, s.totalDays, s.streakUnit)
         }
-        val ranked = leaders.sortedByDescending { if (mode == LeaderboardMode.STREAK) it.bestStreak else it.totalDays }.take(10)
+        val ranked = leaders.sortedByDescending { if (mode == LeaderboardMode.STREAK) it.bestStreakDays else it.totalDays }.take(10)
         val heatmap = logic.overallHeatmap(active, entries, logic.graphStart(today), today)
         Partial(
             HistoryUiState(month, days, null, ranked, mode, logic.weekDays(today).first().dayOfWeek, today, heatmap, heatmap.values.count { it >= 0.999f }),
@@ -247,7 +248,7 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
         val topHabit = p.active
             .map { it to logic.completedInRange(it, p.entries, dashMonth.atDay(1), dashMonth.atEndOfMonth()) }
             .filter { it.second > 0 }.maxByOrNull { it.second }
-        val best = p.leaders.maxByOrNull { it.bestStreak }
+        val best = p.leaders.maxByOrNull { it.bestStreakDays }
         val activeDays = HashSet<Long>()
         p.active.forEach { h -> p.entries[h.id].orEmpty().forEach { (epoch, v) -> if (v > 0.0) activeDays.add(epoch) } }
 
@@ -400,11 +401,11 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                     Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         DashTile("Best Streak", Modifier.weight(1f).fillMaxHeight(), glow = MaterialTheme.colorScheme.primary) {
                             Text("${dash.bestStreak}", style = MaterialTheme.typography.displaySmall)
-                            Text(dash.bestStreakUnit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (dash.bestStreak == 1) dash.bestStreakUnit.removeSuffix("s") else dash.bestStreakUnit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         DashTile("Total Days", Modifier.weight(1f).fillMaxHeight(), glow = MaterialTheme.colorScheme.secondary) {
                             Text("${dash.totalDays}", style = MaterialTheme.typography.displaySmall)
-                            Text("days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (dash.totalDays == 1) "day" else "days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -682,7 +683,7 @@ private fun Leaderboard(state: HistoryUiState, viewModel: HistoryViewModel, onOp
                         Text(e.habit.name, style = MaterialTheme.typography.titleSmall)
                         if (e.habit.archived) Text("Hall of Fame", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
                     }
-                    val value = if (state.mode == LeaderboardMode.STREAK) "${e.bestStreak} ${e.unit}" else "${e.totalDays} days"
+                    val value = if (state.mode == LeaderboardMode.STREAK) countLabel(e.bestStreak, e.unit) else countLabel(e.totalDays, "days")
                     Text(value, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                 }
             }

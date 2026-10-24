@@ -84,7 +84,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.HabitType
+import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.data.model.formatDuration
+import com.repdayrise.app.data.model.amountLabel
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.domain.HabitStats
 import com.repdayrise.app.ui.components.BarChart
@@ -209,8 +211,9 @@ fun HabitDetailScreen(
             }
             Spacer(Modifier.height(20.dp))
             Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("${state.stats.currentStreak}", "Current streak", Modifier.weight(1f).fillMaxHeight(), accent = color)
-                StatTile("${state.stats.bestStreak}", "Best streak", Modifier.weight(1f).fillMaxHeight(), accent = color)
+                val streakUnit = state.stats.streakUnit.takeIf { habit.scheduleType != ScheduleType.DAILY }
+                StatTile("${state.stats.currentStreak}", "Current streak", Modifier.weight(1f).fillMaxHeight(), accent = color, unit = streakUnit)
+                StatTile("${state.stats.bestStreak}", "Best streak", Modifier.weight(1f).fillMaxHeight(), accent = color, unit = streakUnit)
                 StatTile("${state.stats.totalDays}", "Total days", Modifier.weight(1f).fillMaxHeight(), accent = color)
             }
             Spacer(Modifier.height(20.dp))
@@ -235,7 +238,7 @@ fun HabitDetailScreen(
                             color = color,
                             fraction = status?.fraction ?: 0f,
                             completed = status?.completed == true,
-                            missed = status?.scheduled == true && !future && !beforeStart && status.completed.not() && date != state.today,
+                            missed = habit.scheduleType == ScheduleType.DAILY && status?.scheduled == true && !future && !beforeStart && status.completed.not() && date != state.today,
                             isToday = date == state.today,
                             inactive = inactive && status?.completed != true && date != state.today,
                             selected = date in state.selection,
@@ -272,7 +275,7 @@ fun HabitDetailScreen(
                         when {
                             st?.completed == true -> TickState.DONE
                             date.isAfter(state.today) -> TickState.UPCOMING
-                            date.isBefore(habit.startDate) || st?.scheduled != true -> TickState.OFF
+                            date.isBefore(habit.startDate) || st?.scheduled != true || habit.scheduleType != ScheduleType.DAILY -> TickState.OFF
                             else -> TickState.MISSED
                         }
                     }
@@ -282,7 +285,8 @@ fun HabitDetailScreen(
                     color = color,
                     ticks = ticks,
                     done = state.monthDone,
-                    incomplete = ticks.count { it == TickState.MISSED },
+                    incomplete = if (habit.scheduleType == ScheduleType.DAILY) ticks.count { it == TickState.MISSED } else null,
+                    goalNote = habit.scheduleLabel(),
                     modifier = Modifier.padding(16.dp),
                 )
             }
@@ -306,7 +310,7 @@ fun HabitDetailScreen(
                                 date.isBefore(habit.startDate) && v <= 0.0 -> "Before you started"
                                 habit.type == HabitType.CHECK -> if (v > 0.0) "Completed" else "Not completed"
                                 habit.type == HabitType.TIMER -> "${formatDuration(v)} of ${formatDuration(habit.goal)}"
-                                else -> "${formatValue(v)} of ${formatValue(habit.goal)} ${habit.unit}".trim()
+                                else -> "${formatValue(v)} of ${amountLabel(habit.goal, habit.unit)}".trim()
                             }
                             date.format(DateTimeFormatter.ofPattern("EEE, MMM d")) + " · " + what
                         },
@@ -440,7 +444,7 @@ private fun ShareDialog(habit: Habit, stats: HabitStats, monthCompletion: Float,
                     }
                     Spacer(Modifier.weight(1f))
                     Text("${stats.currentStreak}", style = MaterialTheme.typography.displayLarge, color = Color.White)
-                    Text("${stats.streakUnit} streak", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f))
+                    Text("${stats.streakNoun} streak", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f))
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {

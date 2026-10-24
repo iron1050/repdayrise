@@ -73,6 +73,7 @@ import com.repdayrise.app.AppContainer
 import com.repdayrise.app.data.Settings as AppSettings
 import com.repdayrise.app.data.model.AppIcon
 import com.repdayrise.app.data.model.Habit
+import com.repdayrise.app.data.model.countLabel
 import com.repdayrise.app.data.model.ThemeMode
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
@@ -318,7 +319,7 @@ fun HallOfFameScreen(viewModel: HallOfFameViewModel, onBack: () -> Unit, onOpenH
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(e.habit.name, style = MaterialTheme.typography.titleMedium)
-                        Text("Best ${e.bestStreak} ${e.unit} · ${e.totalDays} total days", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Best ${countLabel(e.bestStreak, e.unit)} · ${countLabel(e.totalDays, "days")} total", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { viewModel.restore(e.habit.id) }) { Icon(Icons.Rounded.Restore, contentDescription = "Restore") }
                     IconButton(onClick = { confirmDelete = e.habit }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }

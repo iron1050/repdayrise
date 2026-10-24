@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.formatDuration
+import com.repdayrise.app.data.model.amountLabel
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.ui.components.ContributionGraph
 import com.repdayrise.app.ui.components.GlassTopBar
@@ -189,7 +190,7 @@ fun PartnerDetailScreen(viewModel: PartnerDetailViewModel, onBack: () -> Unit) {
                                 val what = when {
                                     habit.type == HabitType.CHECK -> if (v > 0.0) "Completed" else "Not completed"
                                     habit.type == HabitType.TIMER -> "${formatDuration(v)} of ${formatDuration(habit.goal)}"
-                                    else -> "${formatValue(v)} of ${formatValue(habit.goal)} ${habit.unit}".trim()
+                                    else -> "${formatValue(v)} of ${amountLabel(habit.goal, habit.unit)}".trim()
                                 }
                                 date.format(dayFormat) + " · " + what
                             },

@@ -54,6 +54,8 @@ import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.data.model.ThemeMode
 import com.repdayrise.app.data.model.formatDuration
+import com.repdayrise.app.data.model.amountLabel
+import com.repdayrise.app.data.model.countLabel
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
@@ -96,6 +98,7 @@ data class WidgetHabit(
     val fraction: Float,
     val value: Double,
     val streak: Int,
+    val streakUnit: String = "days",
     /** Last 14 days, oldest first. null = not scheduled that day. */
     val trail: List<Float?>,
 )
@@ -136,7 +139,7 @@ private suspend fun loadWidgetData(context: Context): WidgetData {
             if (d.isBefore(h.startDate) || (h.scheduleType == ScheduleType.DAILY && !DaysMask.contains(h.daysMask, d.dayOfWeek))) null
             else logic.fraction(h, logic.value(entries, h.id, d))
         }
-        WidgetHabit(h, logic.isCompleted(h, v), logic.fraction(h, v), v, logic.stats(h, entries, today).currentStreak, trail)
+        logic.stats(h, entries, today).let { st -> WidgetHabit(h, logic.isCompleted(h, v), logic.fraction(h, v), v, st.currentStreak, st.streakUnit, trail) }
     }
     val month = YearMonth.from(today)
     val monthDays = HashMap<Int, Float>()
@@ -191,7 +194,7 @@ private fun sampleData(context: Context): WidgetData {
     val r = java.util.Random(7)
     val rows = sample.mapIndexed { i, h ->
         val f = fractions[i]
-        WidgetHabit(h, f >= 1f, f, f * h.goal, if (f >= 1f) 6 + i else 0, List(TRAIL_DAYS) { if (r.nextFloat() < 0.75f) 1f else if (r.nextFloat() < 0.5f) 0.5f else 0f })
+        WidgetHabit(h, f >= 1f, f, f * h.goal, if (f >= 1f) 6 + i else 0, "days", List(TRAIL_DAYS) { if (r.nextFloat() < 0.75f) 1f else if (r.nextFloat() < 0.5f) 0.5f else 0f })
     }
     val month = YearMonth.from(today)
     val days = (1..today.dayOfMonth).associateWith { (0.35f + r.nextFloat() * 0.65f).coerceAtMost(1f) }
@@ -232,9 +235,9 @@ private fun style(color: Color, size: Int, weight: FontWeight = FontWeight.Mediu
     TextStyle(color = ColorProvider(color), fontSize = size.sp, fontWeight = weight)
 
 private fun WidgetHabit.subtitle(): String = when (habit.type) {
-    HabitType.COUNT -> "${formatValue(value)} / ${formatValue(habit.goal)} ${habit.unit}".trim()
+    HabitType.COUNT -> "${formatValue(value)} / ${amountLabel(habit.goal, habit.unit)}".trim()
     HabitType.TIMER -> "${formatDuration(value)} / ${formatDuration(habit.goal)}"
-    HabitType.CHECK -> if (streak > 0) "$streak day streak" else habit.scheduleLabel()
+    HabitType.CHECK -> if (streak > 0) "${countLabel(streak, streakUnit)} streak" else habit.scheduleLabel()
 }
 
 /* =========================================================================================

@@ -98,7 +98,7 @@ data class Habit(
 
     fun goalLabel(): String = when (type) {
         HabitType.CHECK -> "Complete"
-        HabitType.COUNT -> "${formatValue(goal)} ${unit.ifBlank { "times" }}"
+        HabitType.COUNT -> amountLabel(goal, unit.ifBlank { "times" })
         HabitType.TIMER -> formatDuration(goal)
     }
 }
@@ -120,6 +120,19 @@ data class ActiveTimer(
     fun elapsedMs(now: Long = System.currentTimeMillis()): Long =
         accumulatedMs + if (running) (now - startedAt).coerceAtLeast(0) else 0
 }
+
+/** "1 session" / "3 sessions": the unit is stored in its plural form, so a count of exactly one drops the plural. */
+fun singularUnit(unit: String): String = when {
+    unit.endsWith("sses") -> unit.dropLast(2)
+    unit.endsWith("ss") -> unit
+    unit.endsWith("s") -> unit.dropLast(1)
+    else -> unit
+}
+
+fun amountLabel(value: Double, unit: String): String =
+    "${formatValue(value)} ${if (value == 1.0) singularUnit(unit) else unit}".trim()
+
+fun countLabel(n: Int, pluralNoun: String): String = "$n ${if (n == 1) singularUnit(pluralNoun) else pluralNoun}"
 
 fun formatValue(v: Double): String =
     if (v == Math.floor(v) && v < 1e9) v.toLong().toString() else String.format(java.util.Locale.US, "%.1f", v)

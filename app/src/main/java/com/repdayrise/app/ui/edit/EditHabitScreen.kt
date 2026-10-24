@@ -270,28 +270,35 @@ fun EditHabitScreen(viewModel: EditHabitViewModel, onDone: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     AnimatedVisibility(visible = viewModel.type != HabitType.CHECK) {
                         Column {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OutlinedTextField(
-                                    value = viewModel.goalText,
-                                    onValueChange = { viewModel.goalText = it.filter { c -> c.isDigit() || c == '.' } },
-                                    label = { Text(if (viewModel.type == HabitType.TIMER) "Goal (minutes)" else "Daily goal") },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    modifier = Modifier.weight(1f),
-                                    shape = MaterialTheme.shapes.medium,
-                                    colors = fieldColors,
+                            if (viewModel.healthSource == HealthSource.LIFTING) {
+                                Text(
+                                    "A day counts once Health Connect has a lifting session. Set how many days a week you aim for in the schedule below.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                if (viewModel.type == HabitType.COUNT) {
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     OutlinedTextField(
-                                        value = viewModel.unit,
-                                        onValueChange = { viewModel.unit = it },
-                                        label = { Text("Unit") },
-                                        placeholder = { Text("glasses") },
+                                        value = viewModel.goalText,
+                                        onValueChange = { viewModel.goalText = it.filter { c -> c.isDigit() || c == '.' } },
+                                        label = { Text(if (viewModel.type == HabitType.TIMER) "Goal (minutes)" else if (viewModel.scheduleType == ScheduleType.DAILY) "Daily goal" else "Goal per day") },
                                         singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                         modifier = Modifier.weight(1f),
                                         shape = MaterialTheme.shapes.medium,
                                         colors = fieldColors,
                                     )
+                                    if (viewModel.type == HabitType.COUNT) {
+                                        OutlinedTextField(
+                                            value = viewModel.unit,
+                                            onValueChange = { viewModel.unit = it },
+                                            label = { Text("Unit") },
+                                            placeholder = { Text("glasses") },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f),
+                                            shape = MaterialTheme.shapes.medium,
+                                            colors = fieldColors,
+                                        )
+                                    }
                                 }
                             }
                             if (viewModel.type == HabitType.COUNT && viewModel.healthAvailable) {

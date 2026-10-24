@@ -17,7 +17,13 @@ data class HabitStats(
     val bestStreak: Int,
     val totalDays: Int,
     val streakUnit: String, // "days", "weeks", "months"
-)
+) {
+    /** "day" / "week" / "month", for labels such as "Week streak". */
+    val streakNoun: String get() = streakUnit.removeSuffix("s")
+
+    /** Best streak expressed in days so habits with different schedules can be ranked against each other. */
+    val bestStreakDays: Int get() = bestStreak * when (streakUnit) { "weeks" -> 7; "months" -> 30; else -> 1 }
+}
 
 data class DayStatus(
     val date: LocalDate,

@@ -90,6 +90,7 @@ import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.data.model.formatDuration
+import com.repdayrise.app.data.model.amountLabel
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.ui.components.Backdrop
 import com.repdayrise.app.ui.components.HabitControl
@@ -388,6 +389,13 @@ private fun HeroOverlay(state: HomeUiState, statusPadding: Dp, stripOverlap: Dp,
     }
 }
 
+/** The streak chip number, with a short unit suffix for weekly and monthly habits so "4" can't be mistaken for days. */
+private fun streakText(row: HabitRowUi): String = when (row.streakUnit) {
+    "weeks" -> "${row.streak}w"
+    "months" -> "${row.streak}mo"
+    else -> "${row.streak}"
+}
+
 private fun greetingFor(date: LocalDate, today: LocalDate): String {
     val diff = java.time.temporal.ChronoUnit.DAYS.between(today, date)
     return when {
@@ -641,14 +649,23 @@ fun HabitRow(
                 )
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val subtitle = when (habit.type) {
-                        HabitType.CHECK -> if (habit.scheduleType == ScheduleType.DAILY) habit.scheduleLabel() else "${row.periodDone}/${row.periodGoal} this ${if (habit.scheduleType == ScheduleType.WEEKLY) "week" else "month"}"
-                        HabitType.COUNT -> "${formatValue(row.value)} / ${formatValue(habit.goal)} ${habit.unit}".trim()
+                    val recurring = habit.scheduleType != ScheduleType.DAILY
+                    val period = if (habit.scheduleType == ScheduleType.WEEKLY) "week" else "month"
+                    val today = when (habit.type) {
+                        HabitType.CHECK -> null
+                        HabitType.COUNT -> "${formatValue(row.value)} / ${amountLabel(habit.goal, habit.unit)}".trim()
                         HabitType.TIMER -> if (row.timer != null && row.timer.running) {
                             "● " + formatClock(elapsed) + " · goal ${formatDuration(habit.goal)}"
                         } else if (row.timer != null) {
                             "Paused " + formatClock(elapsed) + " · goal ${formatDuration(habit.goal)}"
                         } else "${formatDuration(row.value)} / ${formatDuration(habit.goal)}"
+                    }
+                    // Weekly and monthly habits lead with progress through the period; today's value follows once there is one.
+                    val subtitle = when {
+                        !recurring -> today ?: habit.scheduleLabel()
+                        today == null -> "${row.periodDone}/${row.periodGoal} this $period"
+                        row.value > 0.0 || row.timer != null -> "${row.periodDone}/${row.periodGoal} this $period · $today"
+                        else -> "${row.periodDone}/${row.periodGoal} this $period"
                     }
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (row.timer?.running == true) color else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (row.streak > 0) {
@@ -659,7 +676,7 @@ fun HabitRow(
                         ) {
                             Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
                             Spacer(Modifier.width(2.dp))
-                            Text("${row.streak}", style = MaterialTheme.typography.labelMedium, color = color)
+                            Text(streakText(row), style = MaterialTheme.typography.labelMedium, color = color)
                         }
                     }
                 }
@@ -744,7 +761,7 @@ private fun ValueSheet(row: HabitRowUi, onDismiss: () -> Unit, onSet: (Double) -
                     Text(
                         when (habit.type) {
                             HabitType.CHECK -> "Update this day"
-                            HabitType.COUNT -> "Goal ${formatValue(habit.goal)} ${habit.unit}".trim()
+                            HabitType.COUNT -> "Goal ${amountLabel(habit.goal, habit.unit)}".trim()
                             HabitType.TIMER -> "Goal ${formatDuration(habit.goal)}"
                         },
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,

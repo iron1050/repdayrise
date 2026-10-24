@@ -130,7 +130,7 @@ class EditHabitViewModel(
             icon = icon,
             colorIndex = colorIndex,
             type = type,
-            goal = if (type == HabitType.CHECK) 1.0 else (goalText.toDoubleOrNull() ?: 1.0),
+            goal = if (type == HabitType.CHECK || healthSource == HealthSource.LIFTING) 1.0 else (goalText.toDoubleOrNull() ?: 1.0),
             unit = if (type == HabitType.COUNT) unit.trim() else if (type == HabitType.TIMER) "min" else "",
             scheduleType = scheduleType,
             daysMask = daysMask,

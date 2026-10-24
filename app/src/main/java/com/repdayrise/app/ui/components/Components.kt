@@ -173,9 +173,10 @@ fun HabitControl(
 }
 
 @Composable
-fun StatTile(value: String, label: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary) {
+fun StatTile(value: String, label: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary, unit: String? = null) {
     DashTile(label, modifier, glow = accent) {
         Text(value, style = MaterialTheme.typography.headlineMedium, color = accent, textAlign = TextAlign.Center)
+        if (unit != null) Text(unit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
