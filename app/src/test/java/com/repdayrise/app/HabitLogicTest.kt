@@ -119,4 +119,18 @@ class HabitLogicTest {
         assertEquals(3, contributionLevel(0.9f))
         assertEquals(4, contributionLevel(1f))
     }
+
+    @Test
+    fun monthProgressAveragesElapsedDaysAndIsNullForFutureOrEmptyMonths() {
+        val habit = Habit(id = 1, name = "Read", startDate = LocalDate.of(2026, 8, 1))
+        // Two elapsed days in September (1st and 2nd are due): one done, one missed -> 50%.
+        val e = entries(1, LocalDate.of(2026, 9, 1))
+        val sep = java.time.YearMonth.of(2026, 9)
+        val p = logic.monthProgress(listOf(habit), e, sep, today = LocalDate.of(2026, 9, 2))
+        assertEquals(0.5f, p!!, 0.001f)
+        // A month that has not started yet has no progress to report.
+        assertEquals(null, logic.monthProgress(listOf(habit), e, java.time.YearMonth.of(2026, 10), today = LocalDate.of(2026, 9, 2)))
+        // No habits due before the start date -> nothing to average.
+        assertEquals(null, logic.monthProgress(listOf(habit), e, java.time.YearMonth.of(2026, 7), today = LocalDate.of(2026, 9, 2)))
+    }
 }

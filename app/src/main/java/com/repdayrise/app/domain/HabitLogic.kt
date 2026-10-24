@@ -203,6 +203,28 @@ class HabitLogic(private val weekStart: DayOfWeek = DayOfWeek.MONDAY) {
         }
     }
 
+    /**
+     * Average day progress across the elapsed days of [month] that had something scheduled, or null for a month that
+     * has not started or had nothing due.
+     */
+    fun monthProgress(habits: List<Habit>, entries: EntryMap, month: YearMonth, today: LocalDate = LocalDate.now()): Float? {
+        val start = month.atDay(1)
+        if (start.isAfter(today)) return null
+        val end = minOf(month.atEndOfMonth(), today)
+        val active = habits.filter { !it.archived }
+        var sum = 0.0
+        var days = 0
+        var d = start
+        while (!d.isAfter(end)) {
+            if (dayCounts(active, entries, d).second > 0) {
+                sum += dayProgress(active, entries, d)
+                days++
+            }
+            d = d.plusDays(1)
+        }
+        return if (days == 0) null else (sum / days).toFloat()
+    }
+
     /** First day shown on a year graph of [weeks] columns ending in the week of [today]. */
     fun graphStart(today: LocalDate, weeks: Int = GRAPH_WEEKS): LocalDate = weekStartOf(today).minusWeeks((weeks - 1).toLong())
 
