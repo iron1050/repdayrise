@@ -103,6 +103,8 @@ import com.repdayrise.app.ui.components.glassTint
 import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.rememberSkyState
 import com.repdayrise.app.ui.components.SunrisePill
+import com.repdayrise.app.ui.components.drawSunriseShader
+import com.repdayrise.app.ui.components.rememberSunriseShader
 import com.repdayrise.app.ui.components.WeekTrail
 import androidx.compose.ui.text.style.TextDecoration
 import com.repdayrise.app.ui.theme.LocalIsDark
@@ -150,6 +152,7 @@ fun HomeScreen(
 
     val backdrop = rememberBackdrop()
     val sky = rememberSkyState(state.progress, state.selectedDate)
+    val shader = rememberSunriseShader()
     val isDark = LocalIsDark.current
 
     LifecycleResumeEffect(Unit) {
@@ -210,6 +213,7 @@ fun HomeScreen(
                     WeekStrip(
                         state = state,
                         sky = sky,
+                        shader = shader,
                         listState = listState,
                         heroHeight = heroHeight + statusPadding,
                         overlap = stripOverlap,
@@ -403,6 +407,7 @@ fun greeting(): String {
 private fun WeekStrip(
     state: HomeUiState,
     sky: SkyState,
+    shader: android.graphics.RuntimeShader?,
     listState: LazyListState,
     heroHeight: Dp,
     overlap: Dp,
@@ -439,7 +444,11 @@ private fun WeekStrip(
                     val dx = -16.dp.toPx()
                     val dy = -(heroH - overlap.toPx() - parallax)
                     translate(dx, dy) {
-                        drawSky(sky.progress, sky.moon, time = 0f, stars = emptyList(), clouds = emptyList(), hillFraction = 0.2f, detail = false, sizeOverride = Size(heroW, heroH))
+                        if (shader != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            drawSunriseShader(shader, sky.progress, 0f, 0.2f, heroW, heroH, decor = false)
+                        } else {
+                            drawSky(sky.progress, sky.moon, time = 0f, stars = emptyList(), clouds = emptyList(), hillFraction = 0.2f, detail = false, sizeOverride = Size(heroW, heroH))
+                        }
                         drawRect(pageBg, topLeft = Offset(0f, heroH), size = Size(heroW, heroH))
                     }
                 },

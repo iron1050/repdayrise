@@ -1,5 +1,6 @@
 package com.repdayrise.app.ui.components
 
+import android.os.Build
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -117,14 +118,7 @@ fun DrawScope.drawSky(
         }
     }
 
-    // Moon (sets as the sun rises)
-    val moonAlpha = (1f - p / 0.45f).coerceIn(0f, 1f)
-    if (moonAlpha > 0.01f) {
-        val r = min(w, h) * 0.075f
-        val cx = w * 0.78f
-        val cy = h * 0.22f + p * h * 0.6f
-        drawMoon(moonPhase, Offset(cx, cy), r, moonAlpha)
-    }
+    drawSkyMoon(p, moonPhase, w, h)
 
     // Sun
     val horizonY = h * (1f - hillFraction)
@@ -183,6 +177,17 @@ fun DrawScope.drawSky(
         lineTo(w, h); lineTo(0f, h); close()
     }
     drawPath(front, stop.hillFront)
+}
+
+/** The moon, which sets as the sun rises. Shared by the Canvas sky and the shader sky. */
+fun DrawScope.drawSkyMoon(progress: Float, moonPhase: Double, w: Float = size.width, h: Float = size.height) {
+    val moonAlpha = (1f - progress / 0.45f).coerceIn(0f, 1f)
+    if (moonAlpha > 0.01f) {
+        val r = min(w, h) * 0.075f
+        val cx = w * 0.78f
+        val cy = h * 0.22f + progress * h * 0.6f
+        drawMoon(moonPhase, Offset(cx, cy), r, moonAlpha)
+    }
 }
 
 /**
@@ -275,9 +280,15 @@ fun SkyScene(
     hillFraction: Float = 0.24f,
     content: @Composable () -> Unit = {},
 ) {
+    val shader = rememberSunriseShader()
     Box(modifier) {
         Canvas(Modifier.fillMaxSize()) {
-            drawSky(state.progress, state.moon, state.time, hillFraction = hillFraction)
+            if (shader != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                drawSunriseShader(shader, state.progress, state.time, hillFraction)
+                drawSkyMoon(state.progress.coerceIn(0f, 1f), state.moon)
+            } else {
+                drawSky(state.progress, state.moon, state.time, hillFraction = hillFraction)
+            }
             // Soft scrim at the top keeps the date and icons legible against a bright noon sky.
             drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 1f to Color.Transparent, endY = size.height * 0.35f))
         }
