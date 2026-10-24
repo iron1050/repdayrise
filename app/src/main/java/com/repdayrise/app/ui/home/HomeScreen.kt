@@ -520,7 +520,7 @@ private fun PinnedHeader(
         Row(
             Modifier
                 .fillMaxWidth()
-                .frosted(backdrop, glassTint(0.7f))
+                .frosted(backdrop, glassTint(0.9f))
                 .drawBehind { drawRect(Color.Black.copy(alpha = 0.06f), topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f)) }
                 .padding(top = statusPadding)
                 .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),

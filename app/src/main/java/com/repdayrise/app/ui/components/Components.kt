@@ -231,6 +231,7 @@ fun BarChart(
     modifier: Modifier = Modifier,
     highlight: Int = -1,
     maxValue: Float? = null,
+    average: Float? = null,
 ) {
     val progress by animateFloatAsState(1f, spring(stiffness = Spring.StiffnessLow), label = "bars")
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -256,6 +257,13 @@ fun BarChart(
                         Offset(x, size.height - hgt), Size(barW, hgt), radius,
                     )
                 }
+            }
+            if (average != null && average > 0f) {
+                val y = size.height - (average / maxV).coerceIn(0f, 1f) * size.height
+                drawLine(
+                    Color.White.copy(alpha = 0.55f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1.2.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
+                )
             }
         }
         Spacer(Modifier.height(6.dp))

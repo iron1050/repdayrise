@@ -98,6 +98,12 @@ import com.repdayrise.app.ui.components.Gauge
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.IconBadge
 import com.repdayrise.app.ui.components.SystemBars
+import com.repdayrise.app.ui.components.CalendarDay
+import com.repdayrise.app.ui.components.MonthGaugeBlock
+import com.repdayrise.app.ui.components.PillChips
+import com.repdayrise.app.ui.components.StatRow
+import com.repdayrise.app.ui.components.TickState
+import androidx.compose.material3.HorizontalDivider
 import com.repdayrise.app.ui.components.MonthCalendar
 import com.repdayrise.app.ui.components.SectionTitle
 import com.repdayrise.app.ui.components.StatTile
@@ -219,27 +225,22 @@ fun HabitDetailScreen(
                         onNext = { viewModel.nextMonth() },
                         canGoNext = state.month.isBefore(java.time.YearMonth.now()),
                     ) { date ->
-                        if (date == null) { Box(Modifier.size(38.dp)); return@MonthCalendar }
+                        if (date == null) { Box(Modifier.size(40.dp)); return@MonthCalendar }
                         val status = state.monthStatuses[date]
-                        val selected = date in state.selection
                         val future = date.isAfter(state.today)
                         val beforeStart = date.isBefore(habit.startDate)
-                        val fraction = status?.fraction ?: 0f
-                        val ringAlpha by animateFloatAsState(if (status?.completed == true) 1f else 0f, label = "day")
-                        Box(
-                            Modifier
-                                .size(38.dp)
+                        val inactive = future || beforeStart || status?.scheduled != true
+                        CalendarDay(
+                            day = date.dayOfMonth,
+                            color = color,
+                            fraction = status?.fraction ?: 0f,
+                            completed = status?.completed == true,
+                            missed = status?.scheduled == true && !future && !beforeStart && status.completed.not() && date != state.today,
+                            isToday = date == state.today,
+                            inactive = inactive && status?.completed != true && date != state.today,
+                            selected = date in state.selection,
+                            modifier = Modifier
                                 .clip(CircleShape)
-                                .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
-                                .then(if (date == state.today) Modifier.border(1.5.dp, color.copy(alpha = 0.7f), CircleShape) else Modifier)
-                                .background(
-                                    when {
-                                        status?.completed == true -> color.copy(alpha = ringAlpha)
-                                        fraction > 0f -> color.copy(alpha = 0.18f + 0.35f * fraction)
-                                        status?.scheduled == true && !future && !beforeStart -> MaterialTheme.colorScheme.surfaceContainerHighest
-                                        else -> Color.Transparent
-                                    },
-                                )
                                 .combinedClickable(
                                     enabled = !future && !beforeStart,
                                     onClick = {
@@ -249,19 +250,7 @@ fun HabitDetailScreen(
                                     },
                                     onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); viewModel.toggleSelection(date) },
                                 ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                date.dayOfMonth.toString(),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (status?.completed == true) FontWeight.Bold else FontWeight.Medium,
-                                color = when {
-                                    status?.completed == true -> Color.White
-                                    future || beforeStart -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                },
-                            )
-                        }
+                        )
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -271,6 +260,31 @@ fun HabitDetailScreen(
                         modifier = Modifier.padding(start = 4.dp),
                     )
                 }
+            }
+            Spacer(Modifier.height(16.dp))
+
+            // Gauge block, straight under the calendar
+            GlowCard(glow = color) {
+                val ticks = remember(state.month, state.monthStatuses, state.today, habit.startDate) {
+                    (1..state.month.lengthOfMonth()).map { d ->
+                        val date = state.month.atDay(d)
+                        val st = state.monthStatuses[date]
+                        when {
+                            st?.completed == true -> TickState.DONE
+                            date.isAfter(state.today) -> TickState.UPCOMING
+                            date.isBefore(habit.startDate) || st?.scheduled != true -> TickState.OFF
+                            else -> TickState.MISSED
+                        }
+                    }
+                }
+                MonthGaugeBlock(
+                    fraction = state.monthCompletion,
+                    color = color,
+                    ticks = ticks,
+                    done = state.monthDone,
+                    incomplete = ticks.count { it == TickState.MISSED },
+                    modifier = Modifier.padding(16.dp),
+                )
             }
             Spacer(Modifier.height(16.dp))
 
@@ -301,78 +315,35 @@ fun HabitDetailScreen(
             }
             Spacer(Modifier.height(16.dp))
 
-            // Gauge
-            GlowCard(glow = color) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Gauge(
-                        fraction = state.monthCompletion,
-                        color = color,
-                        modifier = Modifier.size(132.dp),
-                        label = "${(state.monthCompletion * 100).roundToInt()}%",
-                        sublabel = "this month",
-                    )
-                    Spacer(Modifier.width(16.dp))
-                    Column {
-                        Text(state.month.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Text("${state.monthDone} ${if (state.monthDone == 1) "day" else "days"} completed", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            when {
-                                state.monthCompletion >= 1f -> "Perfect month. The sun never set."
-                                state.monthCompletion >= 0.75f -> "Strong and steady."
-                                state.monthCompletion >= 0.4f -> "Building momentum."
-                                else -> "Every day is a fresh sunrise."
-                            },
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-
             // Statistics
             GlowCard {
                 Column(Modifier.padding(16.dp)) {
-                    SectionTitle("Statistics")
-                    Spacer(Modifier.height(12.dp))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        StatPeriod.entries.forEachIndexed { i, p ->
-                            SegmentedButton(
-                                selected = state.period == p,
-                                onClick = { viewModel.setPeriod(p) },
-                                shape = SegmentedButtonDefaults.itemShape(i, StatPeriod.entries.size),
-                                colors = SegmentedButtonDefaults.colors(activeContainerColor = color.copy(alpha = 0.2f), activeContentColor = MaterialTheme.colorScheme.onSurface),
-                                icon = {},
-                            ) { Text(p.label) }
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Statistics", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(start = 4.dp))
+                        PillChips(
+                            labels = listOf("W", "M", "Y", "∞"),
+                            selected = StatPeriod.entries.indexOf(state.period),
+                            color = color,
+                            onSelect = { viewModel.setPeriod(StatPeriod.entries[it]) },
+                        )
                     }
                     Spacer(Modifier.height(18.dp))
+                    val chartAverage = remember(state.chart.values) { state.chart.values.filter { it > 0f }.average().takeIf { !it.isNaN() }?.toFloat() }
                     BarChart(
                         values = state.chart.values,
                         labels = state.chart.labels,
                         color = color,
                         highlight = state.chart.highlight,
+                        average = chartAverage,
                         modifier = Modifier.fillMaxWidth().height(150.dp),
                     )
-                    Spacer(Modifier.height(14.dp))
-                    Row {
-                        Column(Modifier.weight(1f)) {
-                            Text("Total", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${state.chart.total} ${state.chart.unit}".trim(), style = MaterialTheme.typography.titleMedium)
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text("Average", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(state.chart.average, style = MaterialTheme.typography.titleMedium)
-                        }
-                        Column(Modifier.weight(1.2f)) {
-                            Text("Compared", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                state.chart.comparison,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = if (state.chart.comparisonPositive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
+                    Spacer(Modifier.height(10.dp))
+                    StatRow("Total", "${state.chart.total} ${state.chart.unit}".trim())
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    StatRow(
+                        "Average", state.chart.average,
+                        delta = state.chart.comparison, deltaPositive = state.chart.comparisonPositive,
+                    )
                 }
             }
             if (habit.note.isNotBlank()) {
