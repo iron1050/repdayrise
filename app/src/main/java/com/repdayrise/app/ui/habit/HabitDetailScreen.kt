@@ -328,7 +328,7 @@ fun HabitDetailScreen(
                         )
                     }
                     Spacer(Modifier.height(18.dp))
-                    val chartAverage = remember(state.chart.values) { state.chart.values.filter { it > 0f }.average().takeIf { !it.isNaN() }?.toFloat() }
+                    val chartAverage = remember(state.chart.values) { state.chart.values.average().takeIf { !it.isNaN() }?.toFloat() }
                     BarChart(
                         values = state.chart.values,
                         labels = state.chart.labels,

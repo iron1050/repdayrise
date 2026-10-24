@@ -209,7 +209,7 @@ fun Gauge(fraction: Float, color: Color, modifier: Modifier = Modifier, label: S
                 // Rotate so the sweep gradient starts where the arc starts.
                 rotate(135f, pivot = c) {
                     drawArc(
-                        Brush.sweepGradient(0f to light, 0.75f to color, 1f to color, center = c),
+                        Brush.sweepGradient(0f to light, 0.75f to color, 1f to light, center = c),
                         0f, 270f * value, false, topLeft, Size(d, d), style = Stroke(s, cap = StrokeCap.Round),
                     )
                 }
