@@ -25,21 +25,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.SouthEast
-import androidx.compose.material.icons.rounded.WbTwilight
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,7 +69,9 @@ import com.repdayrise.app.ui.components.ContributionGraph
 import com.repdayrise.app.ui.components.DashDay
 import com.repdayrise.app.ui.components.DashTile
 import com.repdayrise.app.ui.components.DayTileStrip
+import com.repdayrise.app.ui.components.DayTitle
 import com.repdayrise.app.ui.components.FlameBarChart
+import com.repdayrise.app.ui.components.GlassCircleButton
 import com.repdayrise.app.ui.components.GlowCard
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.IconBadge
@@ -251,9 +254,20 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
     fun setSheetMonth(m: Int) = control.update { it.copy(month = m) }
 }
 
+/**
+ * The Sky view of home: the living sky with today's status and the glass progress pill, and a dark panel of
+ * dashboard tiles sliding up over it. Home owns the selected day; [onSelectDate] hands picks back to it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: (Long) -> Unit) {
+fun ProgressView(
+    viewModel: HistoryViewModel,
+    onOpenHabit: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenPartners: () -> Unit,
+    onSelectDate: (LocalDate) -> Unit,
+    bottomInset: Dp,
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dash = state.dash
     val sky = rememberSkyState(dash.progress, dash.selectedDate)
@@ -263,34 +277,25 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
     val scope = rememberCoroutineScope()
 
     val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val heroHeight = statusPadding + 300.dp
-    val overlap = 30.dp
+    val heroHeight = statusPadding + 440.dp
+    val overlap = 32.dp
 
-    Scaffold(
-        modifier = Modifier.dayriseBackground(),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-    ) { _ ->
+    Box(Modifier.fillMaxSize().dayriseBackground()) {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth()) {
-                // Hero: living sky, title and the glass progress pill.
+                // Hero: living sky, title, today's status and the glass progress pill.
                 Box(Modifier.fillMaxWidth().height(heroHeight)) {
                     Box(Modifier.fillMaxSize().backdropSource(backdrop)) {
                         SkyScene(state = sky, hillFraction = 0.16f, modifier = Modifier.fillMaxSize())
                     }
                     Column(Modifier.fillMaxSize().padding(top = statusPadding)) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = onBack, colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) {
-                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Icon(Icons.Rounded.WbTwilight, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Progress", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                            Spacer(Modifier.weight(1f))
-                            Spacer(Modifier.width(48.dp))
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            GlassCircleButton(Icons.Rounded.Tune, "Settings", onOpenSettings)
+                            DayTitle(dash.selectedDate, state.today, Modifier.weight(1f))
+                            GlassCircleButton(Icons.Rounded.Group, "Partners", onOpenPartners)
                         }
                         Spacer(Modifier.weight(1f))
+                        SkyStatus(dash.done, dash.total, Modifier.align(Alignment.CenterHorizontally).padding(bottom = 14.dp))
                         ProgressPill(
                             done = dash.done,
                             percent = (dash.progress * 100).roundToInt(),
@@ -313,11 +318,11 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                         .frosted(backdrop, glassTint(0.9f), RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
                         .glassBorder(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), alpha = 0.10f)
                         .padding(horizontal = 16.dp)
-                        .padding(top = 16.dp, bottom = 32.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                        .padding(top = 16.dp, bottom = 24.dp + bottomInset),
                 ) {
                     GlowCard(shape = MaterialTheme.shapes.large) {
                         DayTileStrip(
-                            days = dash.week, selected = dash.selectedDate, onSelect = { viewModel.selectDashDate(it) },
+                            days = dash.week, selected = dash.selectedDate, onSelect = onSelectDate,
                             modifier = Modifier.padding(14.dp),
                         )
                     }
@@ -368,7 +373,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                         selectedDate = dash.selectedDate,
                         onPrevious = { viewModel.previousMonth() },
                         onNext = { viewModel.nextMonth() },
-                        onPick = { viewModel.selectDashDate(it); scope.launch { scroll.animateScrollTo(0) } },
+                        onPick = { onSelectDate(it); scope.launch { scroll.animateScrollTo(0) } },
                     )
                     Spacer(Modifier.height(16.dp))
                     GlowCard(glow = MaterialTheme.colorScheme.primary) {
@@ -407,6 +412,27 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit, onOpenHabit: 
                 DashSheet.TOP -> TopHabitSheet(dash, viewModel)
             }
         }
+    }
+}
+
+/** `✓ Completed`, `2 to go` or `Rest day`, large on the sky above the progress pill. */
+@Composable
+private fun SkyStatus(done: Int, total: Int, modifier: Modifier = Modifier) {
+    val complete = total > 0 && done >= total
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (complete) {
+            Icon(Icons.Rounded.CheckCircle, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(
+            when {
+                total == 0 -> "Rest day"
+                complete -> "Completed"
+                else -> "${total - done} to go"
+            },
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color.White,
+        )
     }
 }
 

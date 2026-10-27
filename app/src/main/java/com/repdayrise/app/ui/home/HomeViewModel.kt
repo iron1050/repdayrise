@@ -37,6 +37,9 @@ data class HabitRowUi(
 
 data class HomeSection(val group: HabitGroup?, val rows: List<HabitRowUi>, val collapsed: Boolean)
 
+/** A habit in the "All Habits" list: its schedule and the next day it's due, counted from today. */
+data class AllHabitRow(val habit: Habit, val streak: Int, val streakUnit: String, val nextDue: LocalDate?)
+
 data class DayUi(val date: LocalDate, val progress: Float, val isToday: Boolean, val isFuture: Boolean, val done: Int, val total: Int)
 
 data class HomeUiState(
@@ -47,6 +50,7 @@ data class HomeUiState(
     val done: Int = 0,
     val total: Int = 0,
     val week: List<DayUi> = emptyList(),
+    val allHabits: List<AllHabitRow> = emptyList(),
     val hasAnyHabits: Boolean = false,
     val haptics: Boolean = true,
     val loaded: Boolean = false,
@@ -110,6 +114,14 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             val (dd, tt) = logic.dayCounts(s.habits, s.entries, d)
             DayUi(d, logic.dayProgress(s.habits, s.entries, d), d == today, d.isAfter(today), dd, tt)
         }
+        val allHabits = s.habits.map { habit ->
+            val stats = logic.stats(habit, s.entries, today)
+            // Today counts while it's still open; otherwise look ahead up to two months for the next due day.
+            val nextDue = generateSequence(today) { it.plusDays(1) }.take(62).firstOrNull { d ->
+                logic.isDue(habit, s.entries, d) && !(d == today && logic.isCompleted(habit, s.entries, d))
+            }
+            AllHabitRow(habit, stats.currentStreak, stats.streakUnit, nextDue)
+        }
         return HomeUiState(
             today = today,
             selectedDate = date,
@@ -118,6 +130,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             done = done,
             total = total,
             week = week,
+            allHabits = allHabits,
             hasAnyHabits = s.habits.isNotEmpty(),
             haptics = s.settings.haptics,
             loaded = true,

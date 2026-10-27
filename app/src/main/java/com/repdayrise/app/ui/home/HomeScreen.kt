@@ -1,21 +1,14 @@
 package com.repdayrise.app.ui.home
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,121 +21,109 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
-import com.repdayrise.app.data.model.formatDuration
 import com.repdayrise.app.data.model.amountLabel
+import com.repdayrise.app.data.model.formatDuration
 import com.repdayrise.app.data.model.formatValue
-import com.repdayrise.app.ui.components.Backdrop
+import com.repdayrise.app.ui.components.DayTitle
+import com.repdayrise.app.ui.components.FloatingBarButton
+import com.repdayrise.app.ui.components.FloatingBarClearance
+import com.repdayrise.app.ui.components.FloatingBarPill
+import com.repdayrise.app.ui.components.GlassCircleButton
 import com.repdayrise.app.ui.components.HabitControl
-import com.repdayrise.app.ui.components.SkyState
-import com.repdayrise.app.ui.components.backdropSource
-import com.repdayrise.app.ui.components.dayriseBackground
-import com.repdayrise.app.ui.components.drawSky
-import com.repdayrise.app.ui.components.frosted
-import com.repdayrise.app.ui.components.glassBorder
-import com.repdayrise.app.ui.components.glassTint
-import com.repdayrise.app.ui.components.rememberBackdrop
-import com.repdayrise.app.ui.components.rememberSkyState
-import com.repdayrise.app.ui.components.SunrisePill
-import com.repdayrise.app.ui.components.drawSunriseShader
-import com.repdayrise.app.ui.components.rememberSunriseShader
-import com.repdayrise.app.ui.components.WeekTrail
-import androidx.compose.ui.text.style.TextDecoration
-import com.repdayrise.app.ui.theme.LocalIsDark
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlurEffect
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material3.FloatingActionButtonDefaults
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.IconBadge
-import com.repdayrise.app.ui.components.MiniSunrise
-import com.repdayrise.app.ui.components.SkyScene
+import com.repdayrise.app.ui.components.SunrisePill
 import com.repdayrise.app.ui.components.SystemBars
+import com.repdayrise.app.ui.components.glassBorder
+import com.repdayrise.app.ui.history.HistoryViewModel
+import com.repdayrise.app.ui.history.ProgressView
 import com.repdayrise.app.ui.theme.HabitColors
+import com.repdayrise.app.ui.theme.LocalIsDark
 import kotlinx.coroutines.delay
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.roundToInt
+import java.time.temporal.ChronoUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Suppress("UnusedMaterial3ScaffoldPaddingParameter")
+/** The two faces of home, switched from the floating bar: the sky dashboard and the habit list. */
+enum class HomeMode { SKY, LIST }
+
+/** What the list shows: the selected day's due habits, or every habit with its schedule. */
+enum class ListFilter { DAY, ALL }
+
+private val FlameColor = Color(0xFFFF6B3D)
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    progressViewModel: HistoryViewModel,
+    skyRequest: Int,
     onOpenHabit: (Long) -> Unit,
     onAddHabit: () -> Unit,
-    onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPartners: () -> Unit,
 ) {
@@ -150,168 +131,88 @@ fun HomeScreen(
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
     var valueSheetFor by remember { mutableStateOf<HabitRowUi?>(null) }
-
-    val backdrop = rememberBackdrop()
-    val sky = rememberSkyState(state.progress, state.selectedDate)
-    val shader = rememberSunriseShader()
-    val isDark = LocalIsDark.current
+    var mode by rememberSaveable { mutableStateOf(HomeMode.LIST) }
+    var filter by rememberSaveable { mutableStateOf(ListFilter.DAY) }
 
     LifecycleResumeEffect(Unit) {
         viewModel.refreshToday()
         viewModel.syncHealth()
         onPauseOrDispose { }
     }
+    // The widget's "history" tap lands here and asks for the sky.
+    LaunchedEffect(skyRequest) { if (skyRequest > 0) mode = HomeMode.SKY }
+    // Home owns the selected day; the dashboard follows it.
+    LaunchedEffect(state.selectedDate) { progressViewModel.selectDashDate(state.selectedDate) }
+    BackHandler(enabled = mode == HomeMode.SKY) { mode = HomeMode.LIST }
 
-    val heroHeight = 372.dp
-    val stripOverlap = 64.dp
-    val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40 } }
-    val pinnedAfterPx = with(LocalDensity.current) { (heroHeight - 40.dp).toPx() }
-    val pinned by remember(pinnedAfterPx) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > pinnedAfterPx } }
-    SystemBars(lightStatusIcons = !pinned || isDark)
+    val bottomInset = FloatingBarClearance + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    Scaffold(
-        modifier = Modifier.dayriseBackground(),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddHabit,
-                expanded = !scrolled,
-                icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                text = { Text("New habit") },
-                containerColor = Color.Transparent,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
-                modifier = Modifier
-                    .shadow(18.dp, RoundedCornerShape(18.dp), ambientColor = MaterialTheme.colorScheme.primary, spotColor = MaterialTheme.colorScheme.primary)
-                    .background(SunrisePill, RoundedCornerShape(18.dp)),
-            )
-        },
-        contentWindowInsets = WindowInsets.navigationBars,
-    ) { _ ->
-        Box(Modifier.fillMaxSize()) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize().backdropSource(backdrop),
-                contentPadding = PaddingValues(bottom = 120.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-            ) {
-                item(key = "hero") {
-                    Box(Modifier.fillMaxWidth().height(heroHeight + statusPadding)) {
-                        // Only the sky gets parallax; the text scrolls with the list so it never slides under the week strip.
-                        SkyScene(
-                            state = sky,
-                            hillFraction = 0.2f,
-                            modifier = Modifier.fillMaxSize().graphicsLayer {
-                                val offset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0
-                                translationY = offset * 0.55f
-                            },
-                        )
-                        HeroOverlay(state, statusPadding, stripOverlap, onOpenHistory, onOpenSettings, onOpenPartners, onToday = { viewModel.goToday() })
-                    }
-                }
-                item(key = "week") {
-                    WeekStrip(
-                        state = state,
-                        sky = sky,
-                        shader = shader,
-                        listState = listState,
-                        heroHeight = heroHeight + statusPadding,
-                        overlap = stripOverlap,
-                        onSelect = { viewModel.selectDate(it) },
-                        onSwipe = { viewModel.shiftWeek(it) },
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .offset(y = -stripOverlap),
-                    )
-                }
-                if (!state.hasAnyHabits && state.loaded) {
-                    item(key = "empty") { EmptyState(onAddHabit) }
-                } else if (state.sections.isEmpty() && state.loaded) {
-                    item(key = "nothing") {
-                        Text(
-                            if (state.isFuture) "Nothing scheduled yet" else "Nothing due today. Enjoy the calm.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        )
-                    }
-                }
-                state.sections.forEach { section ->
-                    if (section.group != null) {
-                        item(key = "group-${section.group.id}") {
-                            GroupHeader(
-                                name = section.group.name,
-                                done = section.rows.count { it.completed },
-                                total = section.rows.size,
-                                collapsed = section.collapsed,
-                                onToggle = { viewModel.setGroupCollapsed(section.group, !section.collapsed) },
-                                modifier = Modifier.animateItem(),
-                            )
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Crossfade(targetState = mode, animationSpec = tween(320), label = "home-mode") { m ->
+            when (m) {
+                HomeMode.SKY -> ProgressView(
+                    viewModel = progressViewModel,
+                    onOpenHabit = onOpenHabit,
+                    onOpenSettings = onOpenSettings,
+                    onOpenPartners = onOpenPartners,
+                    onSelectDate = { viewModel.selectDate(it) },
+                    bottomInset = bottomInset,
+                )
+                HomeMode.LIST -> HabitList(
+                    state = state,
+                    filter = filter,
+                    listState = listState,
+                    bottomInset = bottomInset,
+                    onOpenSettings = onOpenSettings,
+                    onAddHabit = onAddHabit,
+                    onOpenHabit = onOpenHabit,
+                    onToggleGroup = { section -> section.group?.let { viewModel.setGroupCollapsed(it, !section.collapsed) } },
+                    onPrimary = { row ->
+                        if (state.isFuture) return@HabitList
+                        when (row.habit.type) {
+                            HabitType.CHECK -> {
+                                if (state.haptics) haptic.performHapticFeedback(if (row.completed) HapticFeedbackType.ToggleOff else HapticFeedbackType.Confirm)
+                                viewModel.toggle(row.habit)
+                            }
+                            HabitType.COUNT -> {
+                                if (row.completed) {
+                                    if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                                    viewModel.setValue(row.habit, 0.0)
+                                } else {
+                                    if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                    viewModel.increment(row.habit, 1.0)
+                                }
+                            }
+                            HabitType.TIMER -> {
+                                if (row.completed) {
+                                    if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                                    viewModel.setValue(row.habit, 0.0)
+                                } else {
+                                    if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                                    viewModel.toggleTimer(row.habit, row.timer)
+                                }
+                            }
                         }
-                    }
-                    if (!section.collapsed) {
-                        items(section.rows.size, key = { "habit-${section.rows[it].habit.id}" }) { i ->
-                            val row = section.rows[i]
-                            HabitRow(
-                                row = row,
-                                today = state.today,
-                                selectedDate = state.selectedDate,
-                                editable = !state.isFuture,
-                                modifier = Modifier
-                                    .animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.8f))
-                                    .padding(horizontal = 16.dp, vertical = 5.dp),
-                                onOpen = { onOpenHabit(row.habit.id) },
-                                onPrimary = {
-                                    if (state.isFuture) return@HabitRow
-                                    when (row.habit.type) {
-                                        HabitType.CHECK -> {
-                                            if (state.haptics) haptic.performHapticFeedback(if (row.completed) HapticFeedbackType.ToggleOff else HapticFeedbackType.Confirm)
-                                            viewModel.toggle(row.habit)
-                                        }
-                                        HabitType.COUNT -> {
-                                            if (row.completed) {
-                                                if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.ToggleOff)
-                                                viewModel.setValue(row.habit, 0.0)
-                                            } else {
-                                                if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                                viewModel.increment(row.habit, 1.0)
-                                            }
-                                        }
-                                        HabitType.TIMER -> {
-                                            if (row.completed) {
-                                                if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.ToggleOff)
-                                                viewModel.setValue(row.habit, 0.0)
-                                            } else {
-                                                if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                                viewModel.toggleTimer(row.habit, row.timer)
-                                            }
-                                        }
-                                    }
-                                },
-                                onLong = {
-                                    if (state.isFuture) return@HabitRow
-                                    if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    valueSheetFor = row
-                                },
-                                onFinishTimer = { viewModel.finishTimer(row.habit) },
-                            )
-                        }
-                    }
-                }
+                    },
+                    onLong = { row ->
+                        if (state.isFuture) return@HabitList
+                        if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        valueSheetFor = row
+                    },
+                    onFinishTimer = { viewModel.finishTimer(it.habit) },
+                )
             }
-            PinnedHeader(
-                visible = pinned,
-                state = state,
-                backdrop = backdrop,
-                statusPadding = statusPadding,
-                onOpenHistory = onOpenHistory,
-                onOpenSettings = onOpenSettings,
-                onOpenPartners = onOpenPartners,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
         }
+        FloatingBar(
+            mode = mode,
+            filter = filter,
+            selectedDate = state.selectedDate,
+            today = state.today,
+            onMode = { mode = it },
+            onPickDay = { date -> viewModel.selectDate(date); filter = ListFilter.DAY },
+            onPickAll = { filter = ListFilter.ALL; mode = HomeMode.LIST },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 
     valueSheetFor?.let { row ->
@@ -324,244 +225,203 @@ fun HomeScreen(
     }
 }
 
+/** Header tint: indigo warming to green as the day fills up, or violet for the all-habits list. */
+private fun headerTint(filter: ListFilter, progress: Float): Color = when (filter) {
+    ListFilter.DAY -> lerp(Color(0xFF2E3482), Color(0xFF1F7A4D), progress.coerceIn(0f, 1f))
+    ListFilter.ALL -> Color(0xFF5A2A88)
+}
+
 @Composable
-private fun HeroOverlay(state: HomeUiState, statusPadding: Dp, stripOverlap: Dp, onOpenHistory: () -> Unit, onOpenSettings: () -> Unit, onOpenPartners: () -> Unit, onToday: () -> Unit) {
-    val dateLabel = remember(state.selectedDate, state.today) {
-        when (state.selectedDate) {
-            state.today -> "Today"
-            state.today.minusDays(1) -> "Yesterday"
-            state.today.plusDays(1) -> "Tomorrow"
-            else -> state.selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d"))
-        }
-    }
-    val subtitle = remember(state.selectedDate, state.today) {
-        if (state.selectedDate == state.today) state.today.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")) else greetingFor(state.selectedDate, state.today)
-    }
-    Column(Modifier.fillMaxSize().padding(top = statusPadding)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(dateLabel, style = MaterialTheme.typography.titleLarge, color = Color.White)
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f))
-            }
-            IconButton(onClick = onOpenPartners, colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) {
-                Icon(Icons.Rounded.Group, contentDescription = "Partners")
-            }
-            IconButton(onClick = onOpenHistory, colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) {
-                Icon(Icons.Rounded.CalendarMonth, contentDescription = "Sunrise history")
-            }
-            IconButton(onClick = onOpenSettings, colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) {
-                Icon(Icons.Rounded.Settings, contentDescription = "Settings")
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        Column(Modifier.padding(start = 24.dp, bottom = stripOverlap + 22.dp)) {
-            AnimatedContent(
-                targetState = (state.progress * 100).roundToInt(),
-                transitionSpec = { (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut()) },
-                label = "pct",
-            ) { pct ->
-                Text("$pct%", style = MaterialTheme.typography.displayLarge, color = Color.White)
-            }
-            val message = when {
-                state.total == 0 -> "Add a habit to start the day"
-                state.done == state.total -> "The sun is up. Beautiful work."
-                state.done == 0 -> "${state.total} ${if (state.total == 1) "habit" else "habits"} waiting for you"
-                else -> "${state.done} of ${state.total} done · keep rising"
-            }
-            Text(message, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.9f))
-            AnimatedVisibility(visible = state.selectedDate != state.today, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                Surface(
-                    onClick = onToday,
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.94f),
-                    contentColor = Color(0xFF14233B),
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.padding(top = 12.dp),
-                ) {
-                    Row(Modifier.padding(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.WbSunny, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFFF08A24))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Back to today", style = MaterialTheme.typography.labelLarge)
+private fun HabitList(
+    state: HomeUiState,
+    filter: ListFilter,
+    listState: LazyListState,
+    bottomInset: Dp,
+    onOpenSettings: () -> Unit,
+    onAddHabit: () -> Unit,
+    onOpenHabit: (Long) -> Unit,
+    onToggleGroup: (HomeSection) -> Unit,
+    onPrimary: (HabitRowUi) -> Unit,
+    onLong: (HabitRowUi) -> Unit,
+    onFinishTimer: (HabitRowUi) -> Unit,
+) {
+    SystemBars(lightStatusIcons = true)
+    val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val barHeight = statusPadding + 68.dp
+    val bg = MaterialTheme.colorScheme.background
+    val tint by animateColorAsState(headerTint(filter, state.progress), tween(600), label = "header")
+    val top = lerp(bg, tint, 0.85f)
+
+    Box(
+        Modifier.fillMaxSize().drawBehind {
+            drawRect(bg)
+            drawRect(Brush.verticalGradient(0f to top, 1f to bg, endY = (barHeight + 220.dp).toPx()))
+        },
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = barHeight + 6.dp, bottom = bottomInset + 16.dp),
+        ) {
+            if (!state.hasAnyHabits && state.loaded) {
+                item(key = "empty") { EmptyState(onAddHabit) }
+            } else when (filter) {
+                ListFilter.DAY -> {
+                    if (state.sections.isEmpty() && state.loaded) {
+                        item(key = "nothing") {
+                            Text(
+                                if (state.isFuture) "Nothing scheduled yet" else "Nothing due today. Enjoy the calm.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            )
+                        }
                     }
+                    state.sections.forEach { section ->
+                        if (section.group != null) {
+                            item(key = "group-${section.group.id}") {
+                                GroupHeader(
+                                    name = section.group.name,
+                                    done = section.rows.count { it.completed },
+                                    total = section.rows.size,
+                                    collapsed = section.collapsed,
+                                    onToggle = { onToggleGroup(section) },
+                                    modifier = Modifier.animateItem(),
+                                )
+                            }
+                        }
+                        if (!section.collapsed) {
+                            items(section.rows, key = { "habit-${it.habit.id}" }) { row ->
+                                HabitRow(
+                                    row = row,
+                                    editable = !state.isFuture,
+                                    modifier = Modifier
+                                        .animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.8f))
+                                        .padding(horizontal = 16.dp, vertical = 5.dp),
+                                    onOpen = { onOpenHabit(row.habit.id) },
+                                    onPrimary = { onPrimary(row) },
+                                    onLong = { onLong(row) },
+                                    onFinishTimer = { onFinishTimer(row) },
+                                )
+                            }
+                        }
+                    }
+                }
+                ListFilter.ALL -> items(state.allHabits, key = { "all-${it.habit.id}" }) { row ->
+                    AllHabitCard(
+                        row = row,
+                        today = state.today,
+                        onOpen = { onOpenHabit(row.habit.id) },
+                        modifier = Modifier.animateItem().padding(horizontal = 16.dp, vertical = 5.dp),
+                    )
                 }
             }
         }
+
+        // Title bar: the list scrolls up under the header tint and fades out beneath it.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(barHeight)
+                .background(Brush.verticalGradient(0f to top, 0.72f to top, 1f to top.copy(alpha = 0f)))
+                .padding(top = statusPadding)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlassCircleButton(Icons.Rounded.Tune, "Settings", onOpenSettings)
+            when (filter) {
+                ListFilter.DAY -> DayTitle(
+                    state.selectedDate, state.today, Modifier.weight(1f),
+                    trailing = if (state.total > 0 && state.done >= state.total) {
+                        { Icon(Icons.Rounded.CheckCircle, contentDescription = "All done", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp)) }
+                    } else null,
+                )
+                ListFilter.ALL -> Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Text("All Habits", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
+                        Text("${state.allHabits.size}", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                    }
+                }
+            }
+            GlassCircleButton(Icons.Rounded.Add, "New habit", onAddHabit)
+        }
+    }
+}
+
+@Composable
+private fun FloatingBar(
+    mode: HomeMode,
+    filter: ListFilter,
+    selectedDate: LocalDate,
+    today: LocalDate,
+    onMode: (HomeMode) -> Unit,
+    onPickDay: (LocalDate) -> Unit,
+    onPickAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val showingAll = mode == HomeMode.LIST && filter == ListFilter.ALL
+    Row(
+        modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FloatingBarButton(Icons.Rounded.BarChart, "Progress", selected = mode == HomeMode.SKY, onClick = { onMode(HomeMode.SKY) })
+        Spacer(Modifier.weight(1f))
+        Box {
+            FloatingBarPill(
+                icon = if (showingAll) Icons.AutoMirrored.Rounded.FormatListBulleted else Icons.Rounded.WbSunny,
+                label = if (showingAll) "All Habits" else shortDay(selectedDate, today),
+                onClick = { menu = true },
+            )
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp)) {
+                DropdownMenuItem(
+                    text = { Text("Today") },
+                    leadingIcon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
+                    onClick = { menu = false; onPickDay(today) },
+                )
+                DropdownMenuItem(
+                    text = { Text("Yesterday") },
+                    leadingIcon = { Icon(Icons.Rounded.History, contentDescription = null) },
+                    onClick = { menu = false; onPickDay(today.minusDays(1)) },
+                )
+                DropdownMenuItem(
+                    text = { Text("All Habits") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, contentDescription = null) },
+                    onClick = { menu = false; onPickAll() },
+                )
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        FloatingBarButton(Icons.AutoMirrored.Rounded.FormatListBulleted, "Habits", selected = mode == HomeMode.LIST, onClick = { onMode(HomeMode.LIST) })
+    }
+}
+
+private fun shortDay(date: LocalDate, today: LocalDate): String = when (date) {
+    today -> "Today"
+    today.minusDays(1) -> "Yesterday"
+    today.plusDays(1) -> "Tomorrow"
+    else -> date.format(DateTimeFormatter.ofPattern("EEE d"))
+}
+
+/** `Today`, `Tomorrow, Oct 28`, `Friday, Oct 31` or `Nov 14` for the next time a habit is due. */
+private fun nextDueLabel(date: LocalDate?, today: LocalDate): String {
+    if (date == null) return ""
+    val days = ChronoUnit.DAYS.between(today, date)
+    return when {
+        days == 0L -> "Today"
+        days == 1L -> "Tomorrow, " + date.format(DateTimeFormatter.ofPattern("MMM d"))
+        days < 7 -> date.format(DateTimeFormatter.ofPattern("EEEE, MMM d"))
+        else -> date.format(DateTimeFormatter.ofPattern("MMM d"))
     }
 }
 
 /** The streak chip number, with a short unit suffix for weekly and monthly habits so "4" can't be mistaken for days. */
-private fun streakText(row: HabitRowUi): String = when (row.streakUnit) {
-    "weeks" -> "${row.streak}w"
-    "months" -> "${row.streak}mo"
-    else -> "${row.streak}"
-}
-
-private fun greetingFor(date: LocalDate, today: LocalDate): String {
-    val diff = java.time.temporal.ChronoUnit.DAYS.between(today, date)
-    return when {
-        diff < -1 -> "${-diff} days ago"
-        diff > 1 -> "In $diff days"
-        else -> date.format(DateTimeFormatter.ofPattern("MMMM d"))
-    }
-}
-
-fun greeting(): String {
-    val h = LocalTime.now().hour
-    return when {
-        h < 5 -> "Still night"
-        h < 12 -> "Good morning"
-        h < 17 -> "Good afternoon"
-        h < 21 -> "Good evening"
-        else -> "Good night"
-    }
-}
-
-@Composable
-private fun WeekStrip(
-    state: HomeUiState,
-    sky: SkyState,
-    shader: android.graphics.RuntimeShader?,
-    listState: LazyListState,
-    heroHeight: Dp,
-    overlap: Dp,
-    onSelect: (LocalDate) -> Unit,
-    onSwipe: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(26.dp)
-    val dark = LocalIsDark.current
-    val pageBg = MaterialTheme.colorScheme.background
-    val tint = if (dark) Color(0xFF141A33).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.62f)
-    Box(
-        modifier
-            .fillMaxWidth()
-            .shadow(14.dp, shape, ambientColor = Color.Black.copy(alpha = 0.35f), spotColor = Color.Black.copy(alpha = 0.35f))
-            .clip(shape)
-            .pointerInput(Unit) {
-                var total = 0f
-                detectHorizontalDragGestures(
-                    onDragStart = { total = 0f },
-                    onDragEnd = { if (abs(total) > 80f) onSwipe(if (total < 0) 1 else -1) },
-                ) { _, drag -> total += drag }
-            },
-    ) {
-        // Blurred echo of the sky exactly where the card overlaps the hero, so the card reads as glass.
-        Box(
-            Modifier
-                .matchParentSize()
-                .graphicsLayer { renderEffect = BlurEffect(22.dp.toPx(), 22.dp.toPx(), TileMode.Clamp) }
-                .drawBehind {
-                    val parallax = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset * 0.55f else 0f
-                    val heroH = heroHeight.toPx()
-                    val heroW = size.width + 32.dp.toPx()
-                    val dx = -16.dp.toPx()
-                    val dy = -(heroH - overlap.toPx() - parallax)
-                    translate(dx, dy) {
-                        if (shader != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                            drawSunriseShader(shader, sky.progress, 0f, 0.2f, heroW, heroH, decor = false)
-                        } else {
-                            drawSky(sky.progress, sky.moon, time = 0f, stars = emptyList(), clouds = emptyList(), hillFraction = 0.2f, detail = false, sizeOverride = Size(heroW, heroH))
-                        }
-                        drawRect(pageBg, topLeft = Offset(0f, heroH), size = Size(heroW, heroH))
-                    }
-                },
-        )
-        Box(Modifier.matchParentSize().background(tint).drawBehind {
-            drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = if (dark) 0.06f else 0.35f), 1f to Color.Transparent, endY = size.height * 0.5f))
-        })
-        Box(Modifier.matchParentSize().glassBorder(shape))
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            state.week.forEach { day ->
-                val selected = day.date == state.selectedDate
-                val borderColor = when {
-                    selected -> MaterialTheme.colorScheme.primary
-                    else -> Color.Transparent
-                }
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { onSelect(day.date) }
-                        .padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (day.isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (day.isToday) FontWeight.ExtraBold else FontWeight.SemiBold,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Box(
-                        Modifier
-                            .size(40.dp)
-                            .border(2.dp, borderColor, CircleShape)
-                            .padding(3.dp)
-                            .clip(CircleShape)
-                            .graphicsLayer { alpha = if (day.isFuture) 0.45f else 1f },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        MiniSunrise(progress = day.progress, date = day.date, modifier = Modifier.fillMaxSize())
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        day.date.dayOfMonth.toString(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PinnedHeader(
-    visible: Boolean,
-    state: HomeUiState,
-    backdrop: Backdrop,
-    statusPadding: Dp,
-    onOpenHistory: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenPartners: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn() + slideInVertically { -it / 2 },
-        exit = fadeOut() + slideOutVertically { -it / 2 },
-        modifier = modifier,
-    ) {
-        val label = when (state.selectedDate) {
-            state.today -> "Today"
-            state.today.minusDays(1) -> "Yesterday"
-            state.today.plusDays(1) -> "Tomorrow"
-            else -> state.selectedDate.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
-        }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .frosted(backdrop, glassTint(0.9f))
-                .drawBehind { drawRect(Color.Black.copy(alpha = 0.06f), topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f)) }
-                .padding(top = statusPadding)
-                .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(34.dp).clip(CircleShape)) { MiniSunrise(progress = state.progress, date = state.selectedDate, modifier = Modifier.fillMaxSize()) }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    if (state.total == 0) "No habits yet" else "${state.done} of ${state.total} done · ${(state.progress * 100).roundToInt()}%",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = onOpenPartners) { Icon(Icons.Rounded.Group, contentDescription = "Partners", tint = MaterialTheme.colorScheme.onSurface) }
-            IconButton(onClick = onOpenHistory) { Icon(Icons.Rounded.CalendarMonth, contentDescription = "Sunrise history", tint = MaterialTheme.colorScheme.onSurface) }
-            IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurface) }
-        }
-    }
+private fun streakText(streak: Int, unit: String): String = when (unit) {
+    "weeks" -> "${streak}w"
+    "months" -> "${streak}mo"
+    else -> "$streak"
 }
 
 @Composable
@@ -582,11 +442,45 @@ private fun GroupHeader(name: String, done: Int, total: Int, collapsed: Boolean,
     }
 }
 
+/** Flat card surface shared by both lists: the base surface with a faint wash of the habit colour from the left. */
+@Composable
+private fun Modifier.habitCard(color: Color): Modifier {
+    val shape = RoundedCornerShape(20.dp)
+    val surface = MaterialTheme.colorScheme.surfaceContainer
+    val dark = LocalIsDark.current
+    return this
+        .fillMaxWidth()
+        .clip(shape)
+        .drawBehind {
+            drawRect(surface)
+            drawRect(Brush.horizontalGradient(0f to color.copy(alpha = if (dark) 0.10f else 0.08f), 0.6f to color.copy(alpha = 0f)))
+        }
+        .glassBorder(shape, alpha = if (dark) 0.05f else 0.6f)
+}
+
+@Composable
+private fun HabitName(name: String, streak: Int, streakUnit: String, completed: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            name,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            textDecoration = if (completed) TextDecoration.LineThrough else null,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (streak > 0) {
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null, tint = FlameColor, modifier = Modifier.size(14.dp))
+            Text(streakText(streak, streakUnit), style = MaterialTheme.typography.labelMedium, color = FlameColor)
+        }
+    }
+}
+
 @Composable
 fun HabitRow(
     row: HabitRowUi,
-    today: LocalDate,
-    selectedDate: LocalDate,
     editable: Boolean,
     onOpen: () -> Unit,
     onPrimary: () -> Unit,
@@ -596,9 +490,6 @@ fun HabitRow(
 ) {
     val habit = row.habit
     val color = HabitColors.of(habit.colorIndex)
-    val doneMix by animateFloatAsState(if (row.completed) 1f else 0f, spring(stiffness = Spring.StiffnessLow), label = "rowbg")
-    val surface = MaterialTheme.colorScheme.surfaceContainer
-    val dark = LocalIsDark.current
     // Live timer ticking
     var elapsed by remember(row.timer?.startedAt, row.timer?.running) { mutableStateOf(row.timer?.elapsedMs() ?: 0L) }
     LaunchedEffect(row.timer?.running, row.timer?.startedAt) {
@@ -611,93 +502,84 @@ fun HabitRow(
     val timerMinutes = elapsed / 60000.0
     val liveFraction = if (habit.type == HabitType.TIMER && row.timer != null) ((row.value + timerMinutes) / habit.effectiveGoal).toFloat().coerceIn(0f, 1f) else row.fraction
 
-    val rowShape = RoundedCornerShape(22.dp)
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(rowShape)
-            .drawBehind {
-                drawRect(surface)
-                val lift = if (dark) 0.14f else 0.10f
-                drawRect(
-                    Brush.linearGradient(
-                        0f to color.copy(alpha = lift + 0.12f * doneMix),
-                        0.65f to color.copy(alpha = lift * 0.35f + 0.05f * doneMix),
-                        1f to color.copy(alpha = 0.02f),
-                        start = Offset.Zero, end = Offset(size.width, size.height),
-                    ),
-                )
-                drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = if (dark) 0.035f else 0.5f), 1f to Color.Transparent, endY = size.height * 0.5f))
-            }
-            .glassBorder(rowShape, alpha = if (dark) 0.05f else 0.6f)
-            .clickable(onClick = onOpen),
-        shape = rowShape,
-        color = Color.Transparent,
+    val recurring = habit.scheduleType != ScheduleType.DAILY
+    val period = if (habit.scheduleType == ScheduleType.WEEKLY) "week" else "month"
+    val todayValue = when (habit.type) {
+        HabitType.CHECK -> null
+        HabitType.COUNT -> "${formatValue(row.value)} / ${amountLabel(habit.goal, habit.unit)}".trim()
+        HabitType.TIMER -> if (row.timer != null && row.timer.running) {
+            "● " + formatClock(elapsed) + " · goal ${formatDuration(habit.goal)}"
+        } else if (row.timer != null) {
+            "Paused " + formatClock(elapsed) + " · goal ${formatDuration(habit.goal)}"
+        } else "${formatDuration(row.value)} / ${formatDuration(habit.goal)}"
+    }
+    // Plain daily check-offs stay a single line, like Dayrise; anything with an amount or a period shows it underneath.
+    val subtitle = when {
+        !recurring -> todayValue
+        todayValue == null -> "${row.periodDone}/${row.periodGoal} this $period"
+        row.value > 0.0 || row.timer != null -> "${row.periodDone}/${row.periodGoal} this $period · $todayValue"
+        else -> "${row.periodDone}/${row.periodGoal} this $period"
+    }
+
+    Row(
+        modifier
+            .habitCard(color)
+            .clickable(onClick = onOpen)
+            .padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(HabitIcons[habit.icon], color, filled = row.completed)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
+        Icon(HabitIcons[habit.icon], contentDescription = null, tint = if (row.completed) color.copy(alpha = 0.55f) else color, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            HabitName(habit.name, row.streak, row.streakUnit, row.completed)
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    habit.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (row.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                    textDecoration = if (row.completed) TextDecoration.LineThrough else null,
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (row.timer?.running == true) color else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val recurring = habit.scheduleType != ScheduleType.DAILY
-                    val period = if (habit.scheduleType == ScheduleType.WEEKLY) "week" else "month"
-                    val today = when (habit.type) {
-                        HabitType.CHECK -> null
-                        HabitType.COUNT -> "${formatValue(row.value)} / ${amountLabel(habit.goal, habit.unit)}".trim()
-                        HabitType.TIMER -> if (row.timer != null && row.timer.running) {
-                            "● " + formatClock(elapsed) + " · goal ${formatDuration(habit.goal)}"
-                        } else if (row.timer != null) {
-                            "Paused " + formatClock(elapsed) + " · goal ${formatDuration(habit.goal)}"
-                        } else "${formatDuration(row.value)} / ${formatDuration(habit.goal)}"
-                    }
-                    // Weekly and monthly habits lead with progress through the period; today's value follows once there is one.
-                    val subtitle = when {
-                        !recurring -> today ?: habit.scheduleLabel()
-                        today == null -> "${row.periodDone}/${row.periodGoal} this $period"
-                        row.value > 0.0 || row.timer != null -> "${row.periodDone}/${row.periodGoal} this $period · $today"
-                        else -> "${row.periodDone}/${row.periodGoal} this $period"
-                    }
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (row.timer?.running == true) color else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (row.streak > 0) {
-                        Spacer(Modifier.width(8.dp))
-                        Row(
-                            Modifier.clip(CircleShape).background(color.copy(alpha = 0.16f)).padding(start = 5.dp, end = 7.dp, top = 1.dp, bottom = 1.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
-                            Spacer(Modifier.width(2.dp))
-                            Text(streakText(row), style = MaterialTheme.typography.labelMedium, color = color)
-                        }
-                    }
-                }
             }
-            Spacer(Modifier.width(8.dp))
-            if (habit.type == HabitType.TIMER && row.timer != null && !row.completed) {
-                TextButton(onClick = onFinishTimer, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Finish", color = color) }
-            }
-            HabitControl(
-                type = habit.type,
-                completed = row.completed,
-                fraction = liveFraction,
-                colorIndex = habit.colorIndex,
-                timerRunning = row.timer?.running == true,
-                onClick = onPrimary,
-                onLongClick = onLong,
-                modifier = Modifier.graphicsLayer { alpha = if (editable) 1f else 0.4f },
-            )
         }
-        Spacer(Modifier.height(10.dp))
-        WeekTrail(row.trail, today, color, selected = selectedDate, modifier = Modifier.padding(horizontal = 2.dp))
+        Spacer(Modifier.width(8.dp))
+        if (habit.type == HabitType.TIMER && row.timer != null && !row.completed) {
+            TextButton(onClick = onFinishTimer, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Finish", color = color) }
+        }
+        HabitControl(
+            type = habit.type,
+            completed = row.completed,
+            fraction = liveFraction,
+            colorIndex = habit.colorIndex,
+            timerRunning = row.timer?.running == true,
+            onClick = onPrimary,
+            onLongClick = onLong,
+            size = 40.dp,
+            modifier = Modifier.graphicsLayer { alpha = if (editable) 1f else 0.4f },
+        )
+    }
+}
+
+/** Card in the all-habits list: name and streak on top, `⟳ Every day … Tomorrow, Oct 28` along a hairline footer. */
+@Composable
+private fun AllHabitCard(row: AllHabitRow, today: LocalDate, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val habit = row.habit
+    val color = HabitColors.of(habit.colorIndex)
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(modifier.habitCard(color).clickable(onClick = onOpen)) {
+        Row(Modifier.padding(start = 18.dp, end = 16.dp, top = 16.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(HabitIcons[habit.icon], contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(16.dp))
+            HabitName(habit.name, row.streak, row.streakUnit, completed = false)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Repeat, contentDescription = null, tint = muted, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(habit.scheduleLabel(), style = MaterialTheme.typography.labelMedium, color = muted, maxLines = 1)
+            Spacer(Modifier.weight(1f))
+            Text(nextDueLabel(row.nextDue, today), style = MaterialTheme.typography.labelMedium, color = muted, maxLines = 1)
         }
     }
 }
@@ -712,7 +594,7 @@ fun formatClock(ms: Long): String {
 
 @Composable
 private fun EmptyState(onAdd: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.size(84.dp).clip(CircleShape).background(
                 Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.tertiaryContainer)),

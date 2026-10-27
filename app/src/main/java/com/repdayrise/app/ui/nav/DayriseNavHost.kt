@@ -10,6 +10,10 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -23,7 +27,6 @@ import com.repdayrise.app.ui.edit.EditHabitScreen
 import com.repdayrise.app.ui.edit.EditHabitViewModel
 import com.repdayrise.app.ui.habit.HabitDetailScreen
 import com.repdayrise.app.ui.habit.HabitDetailViewModel
-import com.repdayrise.app.ui.history.HistoryScreen
 import com.repdayrise.app.ui.history.HistoryViewModel
 import com.repdayrise.app.ui.home.HomeScreen
 import com.repdayrise.app.ui.home.HomeViewModel
@@ -39,6 +42,8 @@ import com.repdayrise.app.ui.settings.SettingsViewModel
 @Composable
 fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistory: Boolean = false, pendingJoinCode: String? = null, onPendingConsumed: () -> Unit) {
     val backStack = rememberNavBackStack(HomeRoute)
+    // Bumped to ask home for its sky view; progress lives there rather than on its own screen.
+    var skyRequest by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(pendingHabitId, pendingHistory, pendingJoinCode) {
         if (pendingJoinCode != null) {
@@ -49,7 +54,8 @@ fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistor
             backStack.add(HabitDetailRoute(pendingHabitId))
             onPendingConsumed()
         } else if (pendingHistory) {
-            if (backStack.lastOrNull() != HistoryRoute) backStack.add(HistoryRoute)
+            while (backStack.size > 1) backStack.removeLastOrNull()
+            skyRequest++
             onPendingConsumed()
         }
     }
@@ -79,11 +85,13 @@ fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistor
         entryProvider = entryProvider {
             entry<HomeRoute> {
                 val vm: HomeViewModel = viewModel { HomeViewModel(container) }
+                val progressVm: HistoryViewModel = viewModel { HistoryViewModel(container) }
                 HomeScreen(
                     viewModel = vm,
+                    progressViewModel = progressVm,
+                    skyRequest = skyRequest,
                     onOpenHabit = { backStack.add(HabitDetailRoute(it)) },
                     onAddHabit = { backStack.add(EditHabitRoute()) },
-                    onOpenHistory = { backStack.add(HistoryRoute) },
                     onOpenSettings = { backStack.add(SettingsRoute) },
                     onOpenPartners = { backStack.add(PartnersRoute()) },
                 )
@@ -95,10 +103,6 @@ fun DayriseNavHost(container: AppContainer, pendingHabitId: Long?, pendingHistor
             entry<EditHabitRoute> { route ->
                 val vm: EditHabitViewModel = viewModel(key = "edit-${route.habitId}") { EditHabitViewModel(container, route.habitId, route.groupId) }
                 EditHabitScreen(viewModel = vm, onDone = { pop() })
-            }
-            entry<HistoryRoute> {
-                val vm: HistoryViewModel = viewModel { HistoryViewModel(container) }
-                HistoryScreen(viewModel = vm, onBack = { pop() }, onOpenHabit = { backStack.add(HabitDetailRoute(it)) })
             }
             entry<SettingsRoute> {
                 val vm: SettingsViewModel = viewModel { SettingsViewModel(container) }
