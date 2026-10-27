@@ -3,6 +3,7 @@ package com.repdayrise.app.widget
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
@@ -67,6 +68,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
 /* =========================================================================================
@@ -75,20 +77,30 @@ import kotlin.math.roundToInt
 
 class WidgetUpdater(private val context: Context) {
     suspend fun updateAll() {
-        runCatching { SunriseWidget().updateAll(context) }
-        runCatching { DashboardWidget().updateAll(context) }
-        runCatching { HabitsWidget().updateAll(context) }
-        runCatching { RhythmWidget().updateAll(context) }
+        runLogged("Sunrise") { SunriseWidget().updateAll(context) }
+        runLogged("Dashboard") { DashboardWidget().updateAll(context) }
+        runLogged("Habits") { HabitsWidget().updateAll(context) }
+        runLogged("Rhythm") { RhythmWidget().updateAll(context) }
     }
 
     /** Publishes generated previews to the widget picker (Android 15+). Rate limited by the OS, so callers guard it. */
     suspend fun publishPreviews() {
         if (Build.VERSION.SDK_INT < 35) return
         val manager = GlanceAppWidgetManager(context)
-        runCatching { manager.setWidgetPreviews(SunriseWidgetReceiver::class) }
-        runCatching { manager.setWidgetPreviews(DashboardWidgetReceiver::class) }
-        runCatching { manager.setWidgetPreviews(HabitsWidgetReceiver::class) }
-        runCatching { manager.setWidgetPreviews(RhythmWidgetReceiver::class) }
+        runLogged("Sunrise preview") { manager.setWidgetPreviews(SunriseWidgetReceiver::class) }
+        runLogged("Dashboard preview") { manager.setWidgetPreviews(DashboardWidgetReceiver::class) }
+        runLogged("Habits preview") { manager.setWidgetPreviews(HabitsWidgetReceiver::class) }
+        runLogged("Rhythm preview") { manager.setWidgetPreviews(RhythmWidgetReceiver::class) }
+    }
+
+    private suspend fun runLogged(name: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            Log.e("DayriseWidgets", "$name widget failed", e)
+        }
     }
 }
 
