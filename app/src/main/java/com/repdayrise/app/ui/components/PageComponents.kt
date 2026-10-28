@@ -1,6 +1,7 @@
 package com.repdayrise.app.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -33,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
@@ -56,7 +58,6 @@ fun SkyPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     SystemBars(lightStatusIcons = true)
-    val backdrop = rememberBackdrop()
     val sky = rememberSkyState(progress, LocalDate.now())
     val statusPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -74,7 +75,7 @@ fun SkyPage(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Box(Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().height(heroHeight)) {
-                    Box(Modifier.fillMaxSize().backdropSource(backdrop)) {
+                    Box(Modifier.fillMaxSize()) {
                         SkyScene(state = sky, hillFraction = 0.14f, modifier = Modifier.fillMaxSize())
                     }
                     Column(Modifier.fillMaxSize().padding(top = statusPadding)) {
@@ -97,7 +98,9 @@ fun SkyPage(
                         .padding(top = heroHeight - overlap)
                         .fillMaxWidth()
                         .heightIn(min = screenHeight - heroHeight + overlap)
-                        .frosted(backdrop, glassTint(0.9f), shape)
+                        // Solid rather than frosted: the blurred sky only reached the overlap strip and ended in a hard band.
+                        .clip(shape)
+                        .background(MaterialTheme.colorScheme.background)
                         .glassBorder(shape, alpha = 0.10f)
                         .padding(horizontal = 16.dp)
                         .padding(top = 18.dp, bottom = 32.dp + navPadding),

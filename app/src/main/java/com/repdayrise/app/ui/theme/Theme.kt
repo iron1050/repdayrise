@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -119,7 +120,9 @@ fun DayriseTheme(
             colorScheme = colorScheme,
             typography = DayriseTypography,
             shapes = DayriseShapes,
-            content = content,
-        )
+        ) {
+            // Screens drawn on a plain Box rather than a Scaffold or Surface would otherwise fall back to black text.
+            CompositionLocalProvider(LocalContentColor provides colorScheme.onBackground, content = content)
+        }
     }
 }
