@@ -1,0 +1,33 @@
+<UserControl
+    x:Class="RepDayrise.Controls.FloatingBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Port of HomeChrome.kt's floating bar: round end buttons around a centre pill, floating over content. -->
+    <StackPanel Orientation="Horizontal" Spacing="10">
+        <StackPanel.Shadow>
+            <ThemeShadow />
+        </StackPanel.Shadow>
+
+        <Button x:Name="ProgressButton" Style="{StaticResource BarButtonStyle}" Click="OnProgress"
+                ToolTipService.ToolTip="Progress (Ctrl+2)" AutomationProperties.Name="Progress">
+            <FontIcon Glyph="&#xE9D2;" FontSize="20" />
+        </Button>
+
+        <Button x:Name="FocusPill" Style="{StaticResource BarPillStyle}" Click="OnFocus" MinWidth="168"
+                ToolTipService.ToolTip="Focus (Ctrl+1)" AutomationProperties.Name="Focus">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Ellipse x:Name="LiveDot" Width="8" Height="8" Fill="{StaticResource SunriseBrush}" VerticalAlignment="Center" Visibility="Collapsed" />
+                <FontIcon x:Name="PillIcon" Glyph="&#xE916;" FontSize="18" />
+                <TextBlock x:Name="PillLabel" Text="Focus" Style="{StaticResource TitleMediumStyle}" VerticalAlignment="Center" />
+                <TextBlock x:Name="PillTime" Style="{StaticResource TitleMediumStyle}" FontWeight="Bold"
+                           VerticalAlignment="Center" Visibility="Collapsed" />
+            </StackPanel>
+        </Button>
+
+        <Button x:Name="HabitsButton" Style="{StaticResource BarButtonStyle}" Click="OnHabits"
+                ToolTipService.ToolTip="Habits (Ctrl+3)" AutomationProperties.Name="Habits">
+            <FontIcon Glyph="&#xE8FD;" FontSize="20" />
+        </Button>
+    </StackPanel>
+</UserControl>

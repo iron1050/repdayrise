@@ -12,7 +12,8 @@
     <Color x:Key="SystemAccentColorDark3">#843614</Color>
 
     <x:Double x:Key="PageMaxWidth">960</x:Double>
-    <Thickness x:Key="PagePadding">36,20,36,36</Thickness>
+    <!-- Clears the round buttons at the top and the floating bar at the bottom. -->
+    <Thickness x:Key="PagePadding">36,64,36,110</Thickness>
 
     <!-- A Fluent card: the surface used by Settings and the Windows 11 inbox apps. -->
     <Style x:Key="CardStyle" TargetType="Border">

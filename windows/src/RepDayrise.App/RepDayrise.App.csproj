@@ -47,6 +47,7 @@
 
   <ItemGroup>
     <Content Include="Assets\**\*.png" />
+    <Content Include="Assets\Fonts\*.ttf" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 

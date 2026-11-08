@@ -1,0 +1,94 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Manrope everywhere, as on Android (ui/theme/Type.kt). A variable font: FontWeight picks the instance. -->
+    <FontFamily x:Key="ManropeFontFamily">ms-appx:///Assets/Fonts/Manrope.ttf#Manrope</FontFamily>
+    <!-- Every Fluent control reads this for its text. -->
+    <FontFamily x:Key="ContentControlThemeFontFamily">ms-appx:///Assets/Fonts/Manrope.ttf#Manrope</FontFamily>
+
+    <!-- CharacterSpacing is in 1/1000 em: Android's letterSpacing (sp) / fontSize * 1000. -->
+    <Style x:Key="DisplayLargeStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="ExtraBold" />
+        <Setter Property="FontSize" Value="56" />
+        <Setter Property="LineHeight" Value="60" />
+        <Setter Property="CharacterSpacing" Value="-27" />
+    </Style>
+    <Style x:Key="DisplayMediumStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="ExtraBold" />
+        <Setter Property="FontSize" Value="44" />
+        <Setter Property="LineHeight" Value="50" />
+        <Setter Property="CharacterSpacing" Value="-23" />
+    </Style>
+    <Style x:Key="HeadlineLargeStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="32" />
+        <Setter Property="LineHeight" Value="38" />
+        <Setter Property="CharacterSpacing" Value="-16" />
+    </Style>
+    <Style x:Key="HeadlineMediumStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="LineHeight" Value="32" />
+        <Setter Property="CharacterSpacing" Value="-12" />
+    </Style>
+    <Style x:Key="HeadlineSmallStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="LineHeight" Value="28" />
+    </Style>
+    <Style x:Key="TitleLargeStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="LineHeight" Value="26" />
+    </Style>
+    <Style x:Key="TitleMediumStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="LineHeight" Value="22" />
+    </Style>
+    <Style x:Key="TitleSmallStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineHeight" Value="20" />
+    </Style>
+    <Style x:Key="BodyLargeStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="LineHeight" Value="24" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="BodyMediumStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineHeight" Value="20" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="BodySmallStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="LineHeight" Value="16" />
+    </Style>
+    <Style x:Key="LabelLargeStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style x:Key="LabelMediumStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="CharacterSpacing" Value="33" />
+    </Style>
+</ResourceDictionary>
