@@ -12,7 +12,8 @@ using RepDayrise.ViewModels;
 
 namespace RepDayrise.Views;
 
-public sealed partial class TodayPage : Page, IHabitRowHost
+/// <summary>Today's habits, grouped, with the week above. A port of the Android list view.</summary>
+public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
 {
     private readonly ObservableCollection<HabitSectionViewModel> _sections = [];
     private readonly Dictionary<long, HabitRowViewModel> _rows = [];
@@ -20,7 +21,7 @@ public sealed partial class TodayPage : Page, IHabitRowHost
     private DateOnly _selected = EpochDay.Today();
     private DateOnly _today = EpochDay.Today();
 
-    public TodayPage()
+    public HabitsPage()
     {
         InitializeComponent();
         Sections.ItemsSource = _sections;
@@ -57,19 +58,18 @@ public sealed partial class TodayPage : Page, IHabitRowHost
         var completedToBottom = AppServices.Settings.Current.CompletedToBottom;
         var culture = CultureInfo.CurrentCulture;
 
-        // Header and sky
+        // Header: tinted from indigo to green as the day fills (the Android list header)
         var isToday = _selected == _today;
-        TitleText.Text = isToday ? "Today" : _selected == _today.AddDays(-1) ? "Yesterday" : _selected.ToString("dddd", culture);
-        DateText.Text = _selected.ToString("D", culture);
+        DayRelative.Text = isToday ? "Today" : _selected == _today.AddDays(-1) ? "Yesterday" : _selected.ToString("dddd", culture);
+        DayDate.Text = ", " + _selected.ToString("d MMM", culture);
         BackToTodayButton.Visibility = isToday ? Visibility.Collapsed : Visibility.Visible;
         var (done, due) = logic.DayCounts(habits, entries, _selected);
         var progress = logic.DayProgress(habits, entries, _selected);
-        Sky.Date = _selected;
-        Sky.Progress = progress;
         ProgressText.Text = due == 0 ? "A quiet day" : done == due ? "The sun is up" : $"{done} of {due} done";
         ProgressDetail.Text = due == 0
             ? MoonPhase.Name(_selected)
             : $"{Math.Round(progress * 100)}% of the way to sunrise · {MoonPhase.Name(_selected)}";
+        HeaderTint.Background = HeaderBrush(progress);
 
         BuildWeekStrip(habits, entries, logic);
 
@@ -145,36 +145,37 @@ public sealed partial class TodayPage : Page, IHabitRowHost
             var future = date > _today;
             var selected = date == _selected;
 
-            var ring = new ProgressRing
-            {
-                IsIndeterminate = false, Width = 30, Height = 30,
-                Value = future ? 0 : logic.DayProgress(habits, entries, date) * 100,
-                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x40, 0x80, 0x80, 0x80)), // a track that reads in both themes
-            };
-            var number = new TextBlock
-            {
-                Text = date.Day.ToString(culture), FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-            };
-            var dial = new Grid { Width = 30, Height = 30, HorizontalAlignment = HorizontalAlignment.Center };
-            dial.Children.Add(ring);
-            dial.Children.Add(number);
-            var content = new StackPanel { Spacing = 4 };
+            // A day chip on the tinted header: name, number and a thin bar of how much got done.
+            var ink = new SolidColorBrush(selected ? Windows.UI.Color.FromArgb(255, 0x1A, 0x1B, 0x2E) : Microsoft.UI.Colors.White);
+            var content = new StackPanel { Spacing = 3 };
             content.Children.Add(new TextBlock
             {
                 Text = culture.DateTimeFormat.GetAbbreviatedDayName(date.DayOfWeek),
-                FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center,
-                Opacity = date == _today ? 1 : 0.7,
-                FontWeight = date == _today ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+                FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Foreground = ink, Opacity = 0.75,
             });
-            content.Children.Add(dial);
+            content.Children.Add(new TextBlock
+            {
+                Text = date.Day.ToString(culture), FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, Foreground = ink,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+            });
+            var fraction = future ? 0 : logic.DayProgress(habits, entries, date);
+            var track = new Grid { Height = 4, Width = 28, CornerRadius = new CornerRadius(2), Margin = new Thickness(0, 3, 0, 0),
+                Background = new SolidColorBrush(selected ? Windows.UI.Color.FromArgb(40, 0, 0, 0) : Windows.UI.Color.FromArgb(56, 255, 255, 255)) };
+            track.Children.Add(new Border
+            {
+                Width = 28 * fraction, HorizontalAlignment = HorizontalAlignment.Left, CornerRadius = new CornerRadius(2),
+                Background = new SolidColorBrush(selected ? HabitVisuals.Sunrise : Microsoft.UI.Colors.White),
+            });
+            content.Children.Add(track);
 
             var button = new Button
             {
-                Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(4, 8, 4, 8),
+                Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 72,
+                Style = (Style)Application.Current.Resources["SoftButtonStyle"],
+                CornerRadius = new CornerRadius(16),
+                Background = new SolidColorBrush(selected ? Microsoft.UI.Colors.White : Windows.UI.Color.FromArgb(31, 255, 255, 255)),
                 IsEnabled = !future,
-                Style = selected ? (Style)Application.Current.Resources["AccentButtonStyle"] : (Style)Application.Current.Resources["DefaultButtonStyle"],
             };
-            if (selected) ring.Foreground = new SolidColorBrush(Microsoft.UI.Colors.White);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, date.ToString("D", culture));
             button.Click += (_, _) => { _selected = date; Refresh(); };
             Grid.SetColumn(button, i);
@@ -193,9 +194,11 @@ public sealed partial class TodayPage : Page, IHabitRowHost
         var button = new Button
         {
             Content = new FontIcon { Glyph = glyph, FontSize = 12 },
+            Style = (Style)Application.Current.Resources["SoftButtonStyle"],
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            CornerRadius = new CornerRadius(12),
             VerticalAlignment = VerticalAlignment.Stretch,
             Padding = new Thickness(8, 0, 8, 0),
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
             IsEnabled = target != _selected && AppServices.Logic.WeekStartOf(target) != AppServices.Logic.WeekStartOf(_selected),
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, name);
@@ -229,7 +232,35 @@ public sealed partial class TodayPage : Page, IHabitRowHost
 
     private void OnNewHabit(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(EditHabitPage), 0L);
 
+    /// <summary>Indigo at the start of the day to green when it's done, fading into the page.</summary>
+    private static LinearGradientBrush HeaderBrush(float progress)
+    {
+        Windows.UI.Color Lerp(Windows.UI.Color a, Windows.UI.Color b, float t) => Windows.UI.Color.FromArgb(255,
+            (byte)(a.R + (b.R - a.R) * t), (byte)(a.G + (b.G - a.G) * t), (byte)(a.B + (b.B - a.B) * t));
+        var tint = Lerp(Windows.UI.Color.FromArgb(255, 0x2E, 0x34, 0x82), Windows.UI.Color.FromArgb(255, 0x1F, 0x7A, 0x4D), progress);
+        return new LinearGradientBrush
+        {
+            StartPoint = new Windows.Foundation.Point(0.5, 0),
+            EndPoint = new Windows.Foundation.Point(0.5, 1),
+            GradientStops =
+            {
+                new GradientStop { Color = tint, Offset = 0 },
+                new GradientStop { Color = tint, Offset = 0.55 },
+                new GradientStop { Color = Windows.UI.Color.FromArgb(0, tint.R, tint.G, tint.B), Offset = 1 },
+            },
+        };
+    }
+
     // ---- IHabitRowHost ----------------------------------------------------------------------
+
+    public void StartFocus(HabitRowViewModel row)
+    {
+        var focus = AppServices.Focus;
+        AppServices.Settings.Update(s => s with { Focus = s.Focus with { LastHabitUid = row.Habit.Uid } });
+        if (focus.Current == null) focus.Start(AppServices.Settings.Current.Focus.ToConfig(), row.Id);
+        else focus.SetHabit(row.Id);
+        App.Current?.Window?.Go(Controls.Destination.Focus);
+    }
 
     public void OpenHabit(HabitRowViewModel row) => Frame.Navigate(typeof(HabitDetailPage), row.Id);
 

@@ -5,6 +5,7 @@
     xmlns:controls="using:RepDayrise.Controls">
 
     <ScrollViewer>
+      <controls:ViewportPanel>
         <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Padding="{StaticResource PagePadding}">
             <Grid ColumnSpacing="16" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
@@ -96,5 +97,6 @@
                 </Border>
             </StackPanel>
         </StackPanel>
+      </controls:ViewportPanel>
     </ScrollViewer>
 </Page>

@@ -6,6 +6,7 @@
     xmlns:sky="using:RepDayrise.Controls.Sky">
 
     <ScrollViewer>
+      <controls:ViewportPanel>
         <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Padding="{StaticResource PagePadding}">
             <Grid Margin="0,0,0,16" ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
@@ -47,5 +48,6 @@
                            Style="{StaticResource SecondaryTextStyle}" />
             </Border>
         </StackPanel>
+      </controls:ViewportPanel>
     </ScrollViewer>
 </Page>

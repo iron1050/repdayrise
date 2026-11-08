@@ -26,7 +26,7 @@ public sealed partial class MainWindow : Window
     {
         [Destination.Focus] = typeof(FocusPage),
         [Destination.Progress] = typeof(ProgressPage),
-        [Destination.Habits] = typeof(TodayPage),
+        [Destination.Habits] = typeof(HabitsPage),
     };
 
     private Destination? _current;
