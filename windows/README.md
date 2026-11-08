@@ -2,7 +2,7 @@
 
 A native Windows 11 version of RepDayrise, built for **focus sessions** at the PC. It is written in C# with WinUI 3 (Windows App SDK) on .NET 10, and packaged as an MSIX. Once installed, it appears in Start like any other app, and you remove it by right-clicking it there and choosing **Uninstall**. That also deletes its data.
 
-It follows the Android app's look: the same shader-drawn sunrise sky, Manrope type, glass panels and floating bar. It covers:
+It shares the Android app's shader-drawn sunrise sky, set in a clean, native Windows 11 frame: Segoe UI Variable, Mica, title-bar tabs and settings cards, with small spring microinteractions. It covers:
 
 - **Focus sessions.** Countdowns with optional short and long breaks, which can be tagged to a timer habit.
 - **Habits.** Check, count and timer habits on daily, weekly or monthly schedules, with streaks, groups and archive.
@@ -76,7 +76,7 @@ Data lives in the package's `LocalState` folder:
 
 **Notifications.** Phase ends are scheduled toasts, so they arrive even when the app is closed. Their buttons are *Start break*, *+5 min*, *Skip* and *Stop*. While the app is open, a heartbeat keeps several things up to date:
 
-- the floating bar's countdown
+- a live timer in the title bar when you're on another tab
 - the window title (shown in Alt+Tab and on the taskbar thumbnail)
 - the taskbar progress fill
 
@@ -93,7 +93,7 @@ Data lives in the package's `LocalState` folder:
   - It draws a single frame when Windows animations are off or battery saver is on, and stops when minimised.
   - **Settings › Eco sky** lowers the frame rate further.
   - On the Focus page, the sun rises through each focus phase.
-- **The look.** `Styles/Colors.xaml`, `Typography.xaml` and `Controls.xaml` port the Android theme: Manrope (`Assets/Fonts`), the Night and Cream surfaces, the sunrise pill, glass panels and the floating bar. The habit palette and icon keys match Android (`Services/HabitVisuals.cs`).
+- **The look.** Quiet and native, so the sky can be the one expressive thing. `Styles/Typography.xaml` uses Segoe UI Variable, which is hinted for the screen and stays crisp at 100% scaling, unlike web fonts under WinUI's greyscale text rendering. `Colors.xaml` uses Mica with Windows 11 layer fills and one sunrise accent; `Controls.xaml` holds the buttons and grouped lists. `Services/Motion.cs` adds spring press feedback, completion pops and fades, all following the Windows animation setting. Navigation is a `SelectorBar` in the WinUI `TitleBar`. The habit palette and icon keys match Android (`Services/HabitVisuals.cs`).
 - **Reminders.** These are scheduled toasts for the coming week, rebuilt whenever habits change and at launch. Rescheduling only touches the reminders group, so the focus toast is never cleared by accident.
 - **Single instance.** `Program.cs` hands a second launch to the open window. That covers Start, a `dayrise://join/CODE` link, a reminder, and a focus toast button.
 
