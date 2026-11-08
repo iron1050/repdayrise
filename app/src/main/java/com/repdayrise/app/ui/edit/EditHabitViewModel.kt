@@ -88,9 +88,11 @@ class EditHabitViewModel(
             unit = source.unit
             goalText = formatValue(source.defaultGoal)
             if (name.isBlank()) name = source.label
+            // Lifting is a weekly rhythm ("3 sessions a week"), not a daily one, so start from that.
+            if (source == HealthSource.LIFTING && scheduleType == ScheduleType.DAILY) { scheduleType = ScheduleType.WEEKLY; timesPerPeriod = 3 }
             icon = when (source) {
                 HealthSource.STEPS -> "walk"; HealthSource.DISTANCE -> "run"; HealthSource.WATER -> "water"
-                HealthSource.SLEEP -> "sleep"; HealthSource.EXERCISE -> "gym"; HealthSource.CALORIES -> "flame"; HealthSource.NONE -> icon
+                HealthSource.SLEEP -> "sleep"; HealthSource.EXERCISE -> "gym"; HealthSource.LIFTING -> "gym"; HealthSource.CALORIES -> "flame"; HealthSource.NONE -> icon
             }
         }
     }
@@ -128,7 +130,7 @@ class EditHabitViewModel(
             icon = icon,
             colorIndex = colorIndex,
             type = type,
-            goal = if (type == HabitType.CHECK) 1.0 else (goalText.toDoubleOrNull() ?: 1.0),
+            goal = if (type == HabitType.CHECK || healthSource == HealthSource.LIFTING) 1.0 else (goalText.toDoubleOrNull() ?: 1.0),
             unit = if (type == HabitType.COUNT) unit.trim() else if (type == HabitType.TIMER) "min" else "",
             scheduleType = scheduleType,
             daysMask = daysMask,

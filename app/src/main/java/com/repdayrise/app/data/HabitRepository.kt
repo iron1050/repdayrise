@@ -8,6 +8,7 @@ import com.repdayrise.app.data.db.ReminderEntity
 import com.repdayrise.app.data.db.TimerEntity
 import com.repdayrise.app.data.model.ActiveTimer
 import com.repdayrise.app.data.model.Habit
+import com.repdayrise.app.data.model.HealthSource
 import com.repdayrise.app.data.model.HabitGroup
 import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.Reminder
@@ -185,7 +186,9 @@ class HabitRepository(
 
 // Mapping helpers
 fun HabitEntity.toModel(reminders: List<Reminder>): Habit = Habit(
-    id = id, name = name, icon = icon, colorIndex = colorIndex, type = type, goal = goal, unit = unit,
+    id = id, name = name, icon = icon, colorIndex = colorIndex, type = type,
+    // A lifting habit counts a day as soon as there is one session; the weekly target lives in timesPerPeriod.
+    goal = if (healthSource == HealthSource.LIFTING) 1.0 else goal, unit = unit,
     scheduleType = scheduleType, daysMask = daysMask, timesPerPeriod = timesPerPeriod, groupId = groupId,
     startDate = LocalDate.ofEpochDay(startDate), createdAt = createdAt, archived = archived, archivedAt = archivedAt,
     sortOrder = sortOrder, healthSource = healthSource, note = note, reminders = reminders,

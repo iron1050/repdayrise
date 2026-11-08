@@ -34,8 +34,24 @@ android {
     buildTypes {
         release {
             optimization {
-                enable = false
+                enable = true
             }
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Signed with the debug key on purpose: the installed daily-driver app was built that way, and a different key
+            // would force an uninstall (and lose its data) instead of updating in place.
+            signingConfig = signingConfigs.getByName("debug")
+            // `-PreleaseAsPreview` builds the same optimized app under the preview id, to try it before replacing the real one.
+            if (project.hasProperty("releaseAsPreview")) applicationIdSuffix = ".preview"
+            // `-PreleaseAsDev` is the same, under its own id, so R8 problems can be iterated on without touching either install.
+            if (project.hasProperty("releaseAsDev")) applicationIdSuffix = ".dev"
+        }
+        // Side-by-side test build: own app id, name and data, so it never overwrites the daily-driver install.
+        create("preview") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            matchingFallbacks += "debug"
         }
     }
     compileOptions {

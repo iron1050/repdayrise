@@ -10,5 +10,4 @@
     <string name="widget_rhythm_description">Your month as a grid of sunrises.</string>
     <string name="notification_channel_reminders">Habit reminders</string>
     <string name="notification_channel_timers">Timers</string>
-    <string name="notification_channel_timer_alerts">Timer goals</string>
 </resources>

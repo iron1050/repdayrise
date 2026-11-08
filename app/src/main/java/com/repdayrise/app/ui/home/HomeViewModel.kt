@@ -9,9 +9,10 @@ import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.HabitGroup
 import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
+import com.repdayrise.app.domain.DayStatus
 import com.repdayrise.app.domain.EntryMap
 import com.repdayrise.app.domain.HabitLogic
-import com.repdayrise.app.notifications.TimerLiveUpdates
+import com.repdayrise.app.notifications.TimerNotifier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,9 +32,13 @@ data class HabitRowUi(
     val timer: ActiveTimer?,
     val periodDone: Int,
     val periodGoal: Int,
+    val trail: List<DayStatus>,
 )
 
 data class HomeSection(val group: HabitGroup?, val rows: List<HabitRowUi>, val collapsed: Boolean)
+
+/** A habit in the "All Habits" list: its schedule and the next day it's due, counted from today. */
+data class AllHabitRow(val habit: Habit, val streak: Int, val streakUnit: String, val nextDue: LocalDate?)
 
 data class DayUi(val date: LocalDate, val progress: Float, val isToday: Boolean, val isFuture: Boolean, val done: Int, val total: Int)
 
@@ -45,6 +50,7 @@ data class HomeUiState(
     val done: Int = 0,
     val total: Int = 0,
     val week: List<DayUi> = emptyList(),
+    val allHabits: List<AllHabitRow> = emptyList(),
     val hasAnyHabits: Boolean = false,
     val haptics: Boolean = true,
     val loaded: Boolean = false,
@@ -75,6 +81,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private fun build(s: Snapshot, date: LocalDate): HomeUiState {
         val logic = HabitLogic(if (s.settings.weekStartsMonday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY)
         val today = LocalDate.now()
+        val weekDates = logic.weekDays(date)
         val due = s.habits.filter { logic.isDue(it, s.entries, date) }
         val rows = due.map { habit ->
             val v = logic.value(s.entries, habit.id, date)
@@ -90,6 +97,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 timer = s.timers.firstOrNull { it.habitId == habit.id && it.date == date },
                 periodDone = if (habit.scheduleType == ScheduleType.DAILY) 0 else logic.completedInRange(habit, s.entries, pStart, pEnd),
                 periodGoal = habit.timesPerPeriod,
+                trail = weekDates.map { logic.dayStatus(habit, s.entries, it) },
             )
         }
         val sorted = if (s.settings.completedToBottom) rows.sortedBy { it.completed } else rows
@@ -106,6 +114,14 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             val (dd, tt) = logic.dayCounts(s.habits, s.entries, d)
             DayUi(d, logic.dayProgress(s.habits, s.entries, d), d == today, d.isAfter(today), dd, tt)
         }
+        val allHabits = s.habits.map { habit ->
+            val stats = logic.stats(habit, s.entries, today)
+            // Today counts while it's still open; otherwise look ahead up to two months for the next due day.
+            val nextDue = generateSequence(today) { it.plusDays(1) }.take(62).firstOrNull { d ->
+                logic.isDue(habit, s.entries, d) && !(d == today && logic.isCompleted(habit, s.entries, d))
+            }
+            AllHabitRow(habit, stats.currentStreak, stats.streakUnit, nextDue)
+        }
         return HomeUiState(
             today = today,
             selectedDate = date,
@@ -114,6 +130,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             done = done,
             total = total,
             week = week,
+            allHabits = allHabits,
             hasAnyHabits = s.habits.isNotEmpty(),
             haptics = s.settings.haptics,
             loaded = true,
@@ -142,23 +159,23 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun toggleTimer(habit: Habit, timer: ActiveTimer?) {
         val date = selectedDate.value
-        // The Live Update follows the timers table (see TimerLiveUpdates.follow).
         viewModelScope.launch {
             if (timer == null || !timer.running) repo.startTimer(habit, date) else repo.pauseTimer(habit.id)
+            TimerNotifier.sync(container, habit.id)
         }
     }
 
     fun finishTimer(habit: Habit) {
         viewModelScope.launch {
             repo.finishTimer(habit)
-            TimerLiveUpdates.dismissAlert(container.context, habit.id)
+            TimerNotifier.sync(container, habit.id)
         }
     }
 
     fun cancelTimer(habit: Habit) {
         viewModelScope.launch {
             repo.cancelTimer(habit.id)
-            TimerLiveUpdates.dismissAlert(container.context, habit.id)
+            TimerNotifier.sync(container, habit.id)
         }
     }
 

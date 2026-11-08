@@ -17,7 +17,13 @@ data class HabitStats(
     val bestStreak: Int,
     val totalDays: Int,
     val streakUnit: String, // "days", "weeks", "months"
-)
+) {
+    /** "day" / "week" / "month", for labels such as "Week streak". */
+    val streakNoun: String get() = streakUnit.removeSuffix("s")
+
+    /** Best streak expressed in days so habits with different schedules can be ranked against each other. */
+    val bestStreakDays: Int get() = bestStreak * when (streakUnit) { "weeks" -> 7; "months" -> 30; else -> 1 }
+}
 
 data class DayStatus(
     val date: LocalDate,
@@ -201,6 +207,28 @@ class HabitLogic(private val weekStart: DayOfWeek = DayOfWeek.MONDAY) {
                 done.toFloat() / habit.timesPerPeriod
             }
         }
+    }
+
+    /**
+     * Average day progress across the elapsed days of [month] that had something scheduled, or null for a month that
+     * has not started or had nothing due.
+     */
+    fun monthProgress(habits: List<Habit>, entries: EntryMap, month: YearMonth, today: LocalDate = LocalDate.now()): Float? {
+        val start = month.atDay(1)
+        if (start.isAfter(today)) return null
+        val end = minOf(month.atEndOfMonth(), today)
+        val active = habits.filter { !it.archived }
+        var sum = 0.0
+        var days = 0
+        var d = start
+        while (!d.isAfter(end)) {
+            if (dayCounts(active, entries, d).second > 0) {
+                sum += dayProgress(active, entries, d)
+                days++
+            }
+            d = d.plusDays(1)
+        }
+        return if (days == 0) null else (sum / days).toFloat()
     }
 
     /** First day shown on a year graph of [weeks] columns ending in the week of [today]. */

@@ -1,6 +1,7 @@
 package com.repdayrise.app.ui.settings
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -34,6 +35,11 @@ import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.FileUpload
+import android.widget.Toast
+import com.repdayrise.app.data.BackupException
+import com.repdayrise.app.data.BackupSummary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -54,6 +60,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,11 +79,21 @@ import com.repdayrise.app.AppContainer
 import com.repdayrise.app.data.Settings as AppSettings
 import com.repdayrise.app.data.model.AppIcon
 import com.repdayrise.app.data.model.Habit
+import com.repdayrise.app.data.model.countLabel
 import com.repdayrise.app.data.model.ThemeMode
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
 import com.repdayrise.app.ui.components.GlassTopBar
 import com.repdayrise.app.ui.components.GlowCard
+import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.WbTwilight
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Palette
+import com.repdayrise.app.ui.components.SkyPage
+import com.repdayrise.app.ui.components.GroupLabel
+import com.repdayrise.app.ui.components.BeadToggleRow
+import com.repdayrise.app.ui.components.BeadRow
 import com.repdayrise.app.ui.components.backdropSource
 import com.repdayrise.app.ui.components.dayriseBackground
 import com.repdayrise.app.ui.components.rememberBackdrop
@@ -98,12 +115,35 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val allHealthPermissions: Set<String> get() = container.health.allPermissions
     suspend fun healthGranted(): Int = container.health.grantedPermissions().size
     fun canScheduleExact(): Boolean = container.reminderScheduler.canScheduleExact()
+    fun canPostLiveUpdates(): Boolean = Build.VERSION.SDK_INT < 36 || container.context.getSystemService(NotificationManager::class.java).canPostPromotedNotifications()
 
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { container.settings.setThemeMode(mode) }
     fun setDynamic(enabled: Boolean) = viewModelScope.launch { container.settings.setDynamicColor(enabled) }
     fun setWeekStartsMonday(monday: Boolean) = viewModelScope.launch { container.settings.setWeekStartsMonday(monday) }
     fun setCompletedToBottom(enabled: Boolean) = viewModelScope.launch { container.settings.setCompletedToBottom(enabled) }
     fun setHaptics(enabled: Boolean) = viewModelScope.launch { container.settings.setHaptics(enabled) }
+    /** Writes every habit, entry, group and reminder to [uri] as JSON. Returns a message for the user. */
+    suspend fun exportTo(uri: Uri): String = runCatching {
+        val json = container.backup.export()
+        container.context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(json.toByteArray()) }
+        "Backup saved"
+    }.getOrElse { "Couldn't save the backup: ${it.message}" }
+
+    /** Reads a backup and checks it without changing anything, so the user can confirm first. */
+    suspend fun readBackup(uri: Uri): Result<Pair<String, BackupSummary>> = runCatching {
+        val json = container.context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+        json to container.backup.inspect(json)
+    }
+
+    suspend fun importBackup(json: String): String = try {
+        val s = container.backup.import(json)
+        "Restored ${countLabel(s.habits, "habits")} and ${countLabel(s.entries, "entries")}"
+    } catch (e: BackupException) {
+        e.message ?: "Couldn't restore that backup"
+    } catch (e: Exception) {
+        "Couldn't restore that backup: ${e.message}"
+    }
+
     fun setAppIcon(icon: AppIcon) = viewModelScope.launch {
         container.settings.setAppIcon(icon)
         container.applyAppIcon(icon)
@@ -132,6 +172,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var notifGranted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) }
+    var liveUpdates by remember { mutableStateOf(viewModel.canPostLiveUpdates()) }
     var exactAlarms by remember { mutableStateOf(viewModel.canScheduleExact()) }
     var healthCount by remember { mutableStateOf(-1) }
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifGranted = it }
@@ -140,117 +181,144 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     LifecycleResumeEffect(Unit) {
         notifGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         exactAlarms = viewModel.canScheduleExact()
+        liveUpdates = viewModel.canPostLiveUpdates()
         onPauseOrDispose { }
     }
     LaunchedEffect(Unit) { if (viewModel.healthAvailable) healthCount = viewModel.healthGranted() }
+    val scope = rememberCoroutineScope()
+    var pendingImport by remember { mutableStateOf<Pair<String, BackupSummary>?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch { Toast.makeText(context, viewModel.exportTo(uri), Toast.LENGTH_SHORT).show() }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            viewModel.readBackup(uri)
+                .onSuccess { pendingImport = it }
+                .onFailure { Toast.makeText(context, (it as? BackupException)?.message ?: "Couldn't read that file", Toast.LENGTH_LONG).show() }
+        }
+    }
+    pendingImport?.let { (json, summary) ->
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("Replace everything?") },
+            text = {
+                Text("This backup has ${countLabel(summary.habits, "habits")}, ${countLabel(summary.entries, "entries")} and ${countLabel(summary.groups, "groups")}. " +
+                    "Restoring deletes all the habits and history on this device first.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImport = null
+                    scope.launch { Toast.makeText(context, viewModel.importBackup(json), Toast.LENGTH_LONG).show() }
+                }) { Text("Replace") }
+            },
+            dismissButton = { TextButton(onClick = { pendingImport = null }) { Text("Cancel") } },
+        )
+    }
     SystemBars()
-    val backdrop = rememberBackdrop()
 
-    Scaffold(
-        modifier = Modifier.dayriseBackground(),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        topBar = {
-            GlassTopBar(
-                backdrop = backdrop,
-                title = { Text("Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .backdropSource(backdrop)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(top = padding.calculateTopPadding(), bottom = 40.dp + padding.calculateBottomPadding()),
-        ) {
-            Group("Appearance") {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Theme", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        val modes = listOf(ThemeMode.SYSTEM to "System", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark")
-                        modes.forEachIndexed { i, (m, label) ->
-                            SegmentedButton(selected = settings.themeMode == m, onClick = { viewModel.setTheme(m) }, shape = SegmentedButtonDefaults.itemShape(i, modes.size), icon = {}) { Text(label) }
-                        }
-                    }
-                }
-                ToggleRow("Material You colours", "Tint the app with your wallpaper palette", settings.dynamicColor) { viewModel.setDynamic(it) }
-            }
-
-            Group("App icon") {
-                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    AppIcon.entries.forEach { icon ->
-                        val selected = settings.appIcon == icon
-                        Column(
-                            Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable { viewModel.setAppIcon(icon) }.padding(6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            IconPreview(icon, selected)
-                            Spacer(Modifier.height(6.dp))
-                            Text(icon.label, style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+    SkyPage(title = "Settings", subtitle = "Make it yours", onBack = onBack) {
+        Group("Appearance") {
+            Column(Modifier.padding(16.dp)) {
+                Text("Theme", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    val modes = listOf(ThemeMode.SYSTEM to "System", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark")
+                    modes.forEachIndexed { i, (m, label) ->
+                        SegmentedButton(selected = settings.themeMode == m, onClick = { viewModel.setTheme(m) }, shape = SegmentedButtonDefaults.itemShape(i, modes.size), icon = {}) { Text(label) }
                     }
                 }
             }
+            BeadToggleRow("Material You colours", "Tint the app with your wallpaper palette", Icons.Rounded.Palette, Color(0xFFB07CF0), settings.dynamicColor) { viewModel.setDynamic(it) }
+        }
 
-            Group("Habits") {
-                ToggleRow("Week starts on Monday", "Affects weekly goals, streaks and calendars", settings.weekStartsMonday) { viewModel.setWeekStartsMonday(it) }
-                ToggleRow("Move completed to the bottom", "Keep what's left front and centre", settings.completedToBottom) { viewModel.setCompletedToBottom(it) }
-                ToggleRow("Haptics", "A gentle tap when you complete a habit", settings.haptics) { viewModel.setHaptics(it) }
-                NavRow("Hall of Fame", "Habits you've completed and retired", Icons.Rounded.EmojiEvents, onOpenHallOfFame)
+        Group("App icon") {
+            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                AppIcon.entries.forEach { icon ->
+                    val selected = settings.appIcon == icon
+                    Column(
+                        Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable { viewModel.setAppIcon(icon) }.padding(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        IconPreview(icon, selected)
+                        Spacer(Modifier.height(6.dp))
+                        Text(icon.label, style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
+        }
 
-            Group("Partners") {
-                NavRow("Accountability partners", "Share your list, or follow someone else's", Icons.Rounded.Group, onOpenPartners)
+        Group("Habits") {
+            BeadToggleRow("Week starts on Monday", "Affects weekly goals, streaks and calendars", Icons.Rounded.CalendarMonth, Color(0xFF4FA3E3), settings.weekStartsMonday) { viewModel.setWeekStartsMonday(it) }
+            BeadToggleRow("Move completed to the bottom", "Keep what's left front and centre", Icons.Rounded.CheckCircle, Color(0xFF4CC28E), settings.completedToBottom) { viewModel.setCompletedToBottom(it) }
+            BeadToggleRow("Haptics", "A gentle tap when you complete a habit", Icons.Rounded.Vibration, Color(0xFFFFB020), settings.haptics) { viewModel.setHaptics(it) }
+            BeadRow("Hall of Fame", "Habits you've completed and retired", Icons.Rounded.EmojiEvents, Color(0xFFFFC14D), onClick = onOpenHallOfFame)
+        }
+
+        Group("Partners") {
+            BeadRow("Accountability partners", "Share your list, or follow someone else's", Icons.Rounded.Group, Color(0xFFF06AA8), onClick = onOpenPartners)
+        }
+
+        Group("Reminders") {
+            NavRow(
+                "Notifications",
+                if (notifGranted) "Allowed" else "Tap to allow reminders",
+                Icons.Rounded.Notifications,
+                Color(0xFFFF8A3D),
+            ) {
+                if (!notifGranted) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
             }
-
-            Group("Reminders") {
+            NavRow(
+                "Exact timing",
+                if (exactAlarms) "Reminders fire on the minute" else "Allow exact alarms so reminders are punctual",
+                Icons.Rounded.Restore,
+                Color(0xFF7C6CF0),
+            ) {
+                if (!exactAlarms) context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
+            }
+            if (Build.VERSION.SDK_INT >= 36) {
                 NavRow(
-                    "Notifications",
-                    if (notifGranted) "Allowed" else "Tap to allow reminders",
-                    Icons.Rounded.Notifications,
-                ) {
-                    if (!notifGranted) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-                }
+                    "Live updates",
+                    if (liveUpdates) "Timers show on your status bar and lock screen" else "Off. Tap to let timers appear as Live Updates",
+                    Icons.Rounded.WbTwilight,
+                    Color(0xFF3DD6C6),
+                ) { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }
+            }
+        }
+
+        Group("Health Connect") {
+            if (viewModel.healthAvailable) {
                 NavRow(
-                    "Exact timing",
-                    if (exactAlarms) "Reminders fire on the minute" else "Allow exact alarms so reminders are punctual",
-                    Icons.Rounded.Restore,
-                ) {
-                    if (!exactAlarms) context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
-                }
+                    "Sync with Health Connect",
+                    when {
+                        healthCount < 0 -> "Checking…"
+                        healthCount == 0 -> "Auto-track steps, water, sleep, exercise and more"
+                        else -> "$healthCount data types connected"
+                    },
+                    Icons.Rounded.Favorite,
+                    Color(0xFFFF5A7A),
+                ) { healthLauncher.launch(viewModel.allHealthPermissions) }
+            } else {
+                Text(
+                    "Health Connect isn't available on this device.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp),
+                )
             }
+        }
 
-            Group("Health Connect") {
-                if (viewModel.healthAvailable) {
-                    NavRow(
-                        "Sync with Health Connect",
-                        when {
-                            healthCount < 0 -> "Checking…"
-                            healthCount == 0 -> "Auto-track steps, water, sleep, exercise and more"
-                            else -> "$healthCount data types connected"
-                        },
-                        Icons.Rounded.Favorite,
-                    ) { healthLauncher.launch(viewModel.allHealthPermissions) }
-                } else {
-                    Text(
-                        "Health Connect isn't available on this device.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp),
-                    )
-                }
-            }
+        Group("Data") {
+            BeadRow("Export backup", "Save your habits and history to a file", Icons.Rounded.FileUpload, Color(0xFF4FA3E3),
+                onClick = { exportLauncher.launch("dayrise-${LocalDate.now()}.json") })
+            BeadRow("Import backup", "Replace what's here with a saved file", Icons.Rounded.FileDownload, Color(0xFF4CC28E),
+                onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) })
+        }
 
-            Group("About") {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Dayrise for Android", style = MaterialTheme.typography.titleSmall)
-                    Text("Version ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0"} · Android ${Build.VERSION.RELEASE}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(6.dp))
-                    Text("Complete your habits and watch the sun rise. Everything stays on your device unless you choose to share your list with a partner.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+        Group("About") {
+            Column(Modifier.padding(16.dp)) {
+                Text("Dayrise for Android", style = MaterialTheme.typography.titleSmall)
+                Text("Version ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0"} · Android ${Build.VERSION.RELEASE}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                Text("Complete your habits and watch the sun rise. Everything stays on your device unless you choose to share your list with a partner.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -282,7 +350,7 @@ private fun IconPreview(icon: AppIcon, selected: Boolean) {
 
 @Composable
 private fun Group(title: String, content: @Composable () -> Unit) {
-    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp))
+    GroupLabel(title)
     GlowCard {
         Column { content() }
     }
@@ -290,34 +358,8 @@ private fun Group(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@Composable
-private fun NavRow(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+private fun NavRow(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, accent: Color, onClick: () -> Unit) {
+    BeadRow(title, subtitle, icon, accent, onClick = onClick)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -325,48 +367,26 @@ private fun NavRow(title: String, subtitle: String, icon: androidx.compose.ui.gr
 fun HallOfFameScreen(viewModel: HallOfFameViewModel, onBack: () -> Unit, onOpenHabit: (Long) -> Unit) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<Habit?>(null) }
-    val backdrop = rememberBackdrop()
-    SystemBars()
-    Scaffold(
-        modifier = Modifier.dayriseBackground(),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        topBar = {
-            GlassTopBar(
-                backdrop = backdrop,
-                title = { Text("Hall of Fame") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .backdropSource(backdrop)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(top = padding.calculateTopPadding(), bottom = 32.dp + padding.calculateBottomPadding()),
-        ) {
-            if (entries.isEmpty()) {
-                Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.EmojiEvents, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(56.dp))
-                    Spacer(Modifier.height(12.dp))
-                    Text("Nothing retired yet", style = MaterialTheme.typography.titleLarge)
-                    Text("When a habit becomes second nature, move it here to keep its record.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                }
+    SkyPage(title = "Hall of Fame", subtitle = "Habits you've retired", onBack = onBack) {
+        if (entries.isEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Rounded.EmojiEvents, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(56.dp))
+                Spacer(Modifier.height(12.dp))
+                Text("Nothing retired yet", style = MaterialTheme.typography.titleLarge)
+                Text("When a habit becomes second nature, move it here to keep its record.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
             }
-            entries.forEach { e ->
-                GlowCard(glow = HabitColors.of(e.habit.colorIndex), modifier = Modifier.padding(vertical = 5.dp), onClick = { onOpenHabit(e.habit.id) }) {
-                    Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconBadge(HabitIcons[e.habit.icon], HabitColors.of(e.habit.colorIndex), filled = true)
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(e.habit.name, style = MaterialTheme.typography.titleMedium)
-                            Text("Best ${e.bestStreak} ${e.unit} · ${e.totalDays} total days", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = { viewModel.restore(e.habit.id) }) { Icon(Icons.Rounded.Restore, contentDescription = "Restore") }
-                        IconButton(onClick = { confirmDelete = e.habit }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        entries.forEach { e ->
+            GlowCard(glow = HabitColors.of(e.habit.colorIndex), modifier = Modifier.padding(vertical = 5.dp), onClick = { onOpenHabit(e.habit.id) }) {
+                Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBadge(HabitIcons[e.habit.icon], HabitColors.of(e.habit.colorIndex), filled = true)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(e.habit.name, style = MaterialTheme.typography.titleMedium)
+                        Text("Best ${countLabel(e.bestStreak, e.unit)} · ${countLabel(e.totalDays, "days")} total", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    IconButton(onClick = { viewModel.restore(e.habit.id) }) { Icon(Icons.Rounded.Restore, contentDescription = "Restore") }
+                    IconButton(onClick = { confirmDelete = e.habit }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -42,9 +43,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.repdayrise.app.ui.components.SkyAssets
+import com.repdayrise.app.ui.components.SkyScene
+import com.repdayrise.app.ui.components.backdropSource
+import com.repdayrise.app.ui.components.frosted
+import com.repdayrise.app.ui.components.glassBorder
+import com.repdayrise.app.ui.components.rememberBackdrop
 import com.repdayrise.app.ui.components.SystemBars
-import com.repdayrise.app.ui.components.drawSky
 import com.repdayrise.app.ui.theme.Gold
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -65,13 +69,16 @@ fun OnboardingScreen(onFinish: (addStarterHabits: Boolean) -> Unit) {
     SystemBars(lightStatusIcons = true)
 
     val progress = ((pager.currentPage + pager.currentPageOffsetFraction) / (pages.size - 1)).coerceIn(0f, 1f)
-    val moon = remember { com.repdayrise.app.domain.MoonPhase.phase(LocalDate.now()) }
+    val backdrop = rememberBackdrop()
 
     Box(Modifier.fillMaxSize().background(Color(0xFF05060F))) {
-        Canvas(Modifier.fillMaxSize()) { drawSky(progress * 0.98f + 0.02f, moon, stars = SkyAssets.stars, hillFraction = 0.32f, detail = false) }
+        Box(Modifier.fillMaxSize().backdropSource(backdrop)) {
+            SkyScene(progress = progress * 0.98f + 0.02f, date = LocalDate.now(), hillFraction = 0.32f, modifier = Modifier.fillMaxSize())
+        }
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { }
         Column(Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 28.dp, vertical = 24.dp)) {
             Spacer(Modifier.weight(1f))
+            Box(Modifier.fillMaxWidth().frosted(backdrop, Color.Black.copy(alpha = 0.30f), RoundedCornerShape(28.dp)).glassBorder(RoundedCornerShape(28.dp), alpha = 0.2f).padding(22.dp)) {
             AnimatedContent(
                 targetState = pager.currentPage,
                 transitionSpec = {
@@ -85,6 +92,7 @@ fun OnboardingScreen(onFinish: (addStarterHabits: Boolean) -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     Text(pages[index].body, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f))
                 }
+            }
             }
             Spacer(Modifier.height(28.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

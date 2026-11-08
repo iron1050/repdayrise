@@ -7,6 +7,7 @@ import com.repdayrise.app.data.model.Habit
 import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.data.model.formatDuration
+import com.repdayrise.app.data.model.amountLabel
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.data.sharing.Following
 import com.repdayrise.app.data.sharing.SharingRepository
@@ -168,7 +169,7 @@ class PartnerDetailViewModel(container: AppContainer, private val shareId: Strin
                 due = logic.isDue(h, entries, today),
                 streak = logic.stats(h, entries, today).currentStreak,
                 subtitle = when {
-                    h.type == HabitType.COUNT -> "${formatValue(value)} / ${formatValue(h.goal)} ${h.unit}".trim()
+                    h.type == HabitType.COUNT -> "${formatValue(value)} / ${amountLabel(h.goal, h.unit)}".trim()
                     h.type == HabitType.TIMER -> "${formatDuration(value)} / ${formatDuration(h.goal)}"
                     h.scheduleType == ScheduleType.DAILY -> h.scheduleLabel()
                     else -> "${logic.completedCountInPeriod(h, entries, today)}/${h.timesPerPeriod} this ${if (h.scheduleType == ScheduleType.WEEKLY) "week" else "month"}"

@@ -56,6 +56,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.repdayrise.app.data.model.HabitType
+import com.repdayrise.app.domain.DayStatus
+import java.time.LocalDate
 import com.repdayrise.app.ui.theme.HabitColors
 import kotlin.math.max
 
@@ -171,13 +173,10 @@ fun HabitControl(
 }
 
 @Composable
-fun StatTile(value: String, label: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary) {
-    GlowCard(modifier = modifier, shape = MaterialTheme.shapes.medium, glow = accent) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = accent, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(2.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        }
+fun StatTile(value: String, label: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary, unit: String? = null) {
+    DashTile(label, modifier, glow = accent) {
+        Text(value, style = MaterialTheme.typography.headlineMedium, color = accent, textAlign = TextAlign.Center)
+        if (unit != null) Text(unit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -207,7 +206,7 @@ fun Gauge(fraction: Float, color: Color, modifier: Modifier = Modifier, label: S
                 // Rotate so the sweep gradient starts where the arc starts.
                 rotate(135f, pivot = c) {
                     drawArc(
-                        Brush.sweepGradient(0f to light, 0.75f to color, 1f to color, center = c),
+                        Brush.sweepGradient(0f to light, 0.75f to color, 1f to light, center = c),
                         0f, 270f * value, false, topLeft, Size(d, d), style = Stroke(s, cap = StrokeCap.Round),
                     )
                 }
@@ -229,6 +228,7 @@ fun BarChart(
     modifier: Modifier = Modifier,
     highlight: Int = -1,
     maxValue: Float? = null,
+    average: Float? = null,
 ) {
     val progress by animateFloatAsState(1f, spring(stiffness = Spring.StiffnessLow), label = "bars")
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -255,6 +255,13 @@ fun BarChart(
                     )
                 }
             }
+            if (average != null && average > 0f) {
+                val y = size.height - (average / maxV).coerceIn(0f, 1f) * size.height
+                drawLine(
+                    Color.White.copy(alpha = 0.55f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1.2.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
+                )
+            }
         }
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -268,6 +275,42 @@ fun BarChart(
                 }
                 if (n > 16) {
                     labels.filterIndexed { i, _ -> i % step == 0 }.forEach { Text(it, style = labelStyle, color = muted) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Seven-day trail shown under a habit row: filled bead when done, partial arc when in progress,
+ * hollow ring for a missed scheduled day, and a tiny dot for days that don't count.
+ */
+@Composable
+fun WeekTrail(days: List<DayStatus>, today: LocalDate, color: Color, modifier: Modifier = Modifier, selected: LocalDate? = null) {
+    Row(modifier, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        days.forEach { d ->
+            val future = d.date.isAfter(today)
+            Canvas(Modifier.weight(1f).height(16.dp)) {
+                val r = 6.dp.toPx()
+                val c = Offset(size.width / 2, size.height / 2)
+                val stroke = 2.dp.toPx()
+                when {
+                    d.completed -> {
+                        drawCircle(accentGradient(color), r, c)
+                    }
+                    !d.scheduled || future -> drawCircle(color.copy(alpha = if (future) 0.18f else 0.28f), 2.dp.toPx(), c)
+                    d.fraction > 0f -> {
+                        drawCircle(color.copy(alpha = 0.22f), r - stroke / 2, c, style = Stroke(stroke))
+                        drawArc(
+                            color, -90f, 360f * d.fraction, false,
+                            Offset(c.x - r + stroke / 2, c.y - r + stroke / 2), Size((r - stroke / 2) * 2, (r - stroke / 2) * 2),
+                            style = Stroke(stroke, cap = StrokeCap.Round),
+                        )
+                    }
+                    else -> drawCircle(color.copy(alpha = 0.32f), r - stroke / 2, c, style = Stroke(stroke))
+                }
+                if (d.date == selected) {
+                    drawCircle(color.copy(alpha = 0.9f), r + 2.5.dp.toPx(), c, style = Stroke(1.2.dp.toPx()))
                 }
             }
         }

@@ -2,6 +2,7 @@ package com.repdayrise.app.notifications
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -30,7 +32,6 @@ import java.time.ZoneId
 object Channels {
     const val REMINDERS = "reminders"
     const val TIMERS = "timers"
-    const val TIMER_ALERTS = "timer_alerts"
 
     fun ensure(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -43,11 +44,6 @@ object Channels {
             NotificationChannel(TIMERS, context.getString(R.string.notification_channel_timers), NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Running habit timers."
                 setSound(null, null)
-            }
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(TIMER_ALERTS, context.getString(R.string.notification_channel_timer_alerts), NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "A heads-up when a running timer reaches its goal."
             }
         )
     }
@@ -198,3 +194,4 @@ class BootReceiver : BroadcastReceiver() {
         }
     }
 }
+

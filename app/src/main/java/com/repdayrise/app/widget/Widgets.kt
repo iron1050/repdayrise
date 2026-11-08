@@ -3,6 +3,7 @@ package com.repdayrise.app.widget
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
@@ -54,6 +55,8 @@ import com.repdayrise.app.data.model.HabitType
 import com.repdayrise.app.data.model.ScheduleType
 import com.repdayrise.app.data.model.ThemeMode
 import com.repdayrise.app.data.model.formatDuration
+import com.repdayrise.app.data.model.amountLabel
+import com.repdayrise.app.data.model.countLabel
 import com.repdayrise.app.data.model.formatValue
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.ui.components.HabitIcons
@@ -65,6 +68,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
 /* =========================================================================================
@@ -73,20 +77,30 @@ import kotlin.math.roundToInt
 
 class WidgetUpdater(private val context: Context) {
     suspend fun updateAll() {
-        runCatching { SunriseWidget().updateAll(context) }
-        runCatching { DashboardWidget().updateAll(context) }
-        runCatching { HabitsWidget().updateAll(context) }
-        runCatching { RhythmWidget().updateAll(context) }
+        runLogged("Sunrise") { SunriseWidget().updateAll(context) }
+        runLogged("Dashboard") { DashboardWidget().updateAll(context) }
+        runLogged("Habits") { HabitsWidget().updateAll(context) }
+        runLogged("Rhythm") { RhythmWidget().updateAll(context) }
     }
 
     /** Publishes generated previews to the widget picker (Android 15+). Rate limited by the OS, so callers guard it. */
     suspend fun publishPreviews() {
         if (Build.VERSION.SDK_INT < 35) return
         val manager = GlanceAppWidgetManager(context)
-        runCatching { manager.setWidgetPreviews(SunriseWidgetReceiver::class) }
-        runCatching { manager.setWidgetPreviews(DashboardWidgetReceiver::class) }
-        runCatching { manager.setWidgetPreviews(HabitsWidgetReceiver::class) }
-        runCatching { manager.setWidgetPreviews(RhythmWidgetReceiver::class) }
+        runLogged("Sunrise preview") { manager.setWidgetPreviews(SunriseWidgetReceiver::class) }
+        runLogged("Dashboard preview") { manager.setWidgetPreviews(DashboardWidgetReceiver::class) }
+        runLogged("Habits preview") { manager.setWidgetPreviews(HabitsWidgetReceiver::class) }
+        runLogged("Rhythm preview") { manager.setWidgetPreviews(RhythmWidgetReceiver::class) }
+    }
+
+    private suspend fun runLogged(name: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            Log.e("DayriseWidgets", "$name widget failed", e)
+        }
     }
 }
 
@@ -96,6 +110,7 @@ data class WidgetHabit(
     val fraction: Float,
     val value: Double,
     val streak: Int,
+    val streakUnit: String = "days",
     /** Last 14 days, oldest first. null = not scheduled that day. */
     val trail: List<Float?>,
 )
@@ -136,7 +151,7 @@ private suspend fun loadWidgetData(context: Context): WidgetData {
             if (d.isBefore(h.startDate) || (h.scheduleType == ScheduleType.DAILY && !DaysMask.contains(h.daysMask, d.dayOfWeek))) null
             else logic.fraction(h, logic.value(entries, h.id, d))
         }
-        WidgetHabit(h, logic.isCompleted(h, v), logic.fraction(h, v), v, logic.stats(h, entries, today).currentStreak, trail)
+        logic.stats(h, entries, today).let { st -> WidgetHabit(h, logic.isCompleted(h, v), logic.fraction(h, v), v, st.currentStreak, st.streakUnit, trail) }
     }
     val month = YearMonth.from(today)
     val monthDays = HashMap<Int, Float>()
@@ -191,7 +206,7 @@ private fun sampleData(context: Context): WidgetData {
     val r = java.util.Random(7)
     val rows = sample.mapIndexed { i, h ->
         val f = fractions[i]
-        WidgetHabit(h, f >= 1f, f, f * h.goal, if (f >= 1f) 6 + i else 0, List(TRAIL_DAYS) { if (r.nextFloat() < 0.75f) 1f else if (r.nextFloat() < 0.5f) 0.5f else 0f })
+        WidgetHabit(h, f >= 1f, f, f * h.goal, if (f >= 1f) 6 + i else 0, "days", List(TRAIL_DAYS) { if (r.nextFloat() < 0.75f) 1f else if (r.nextFloat() < 0.5f) 0.5f else 0f })
     }
     val month = YearMonth.from(today)
     val days = (1..today.dayOfMonth).associateWith { (0.35f + r.nextFloat() * 0.65f).coerceAtMost(1f) }
@@ -232,9 +247,9 @@ private fun style(color: Color, size: Int, weight: FontWeight = FontWeight.Mediu
     TextStyle(color = ColorProvider(color), fontSize = size.sp, fontWeight = weight)
 
 private fun WidgetHabit.subtitle(): String = when (habit.type) {
-    HabitType.COUNT -> "${formatValue(value)} / ${formatValue(habit.goal)} ${habit.unit}".trim()
+    HabitType.COUNT -> "${formatValue(value)} / ${amountLabel(habit.goal, habit.unit)}".trim()
     HabitType.TIMER -> "${formatDuration(value)} / ${formatDuration(habit.goal)}"
-    HabitType.CHECK -> if (streak > 0) "$streak day streak" else habit.scheduleLabel()
+    HabitType.CHECK -> if (streak > 0) "${countLabel(streak, streakUnit)} streak" else habit.scheduleLabel()
 }
 
 /* =========================================================================================

@@ -38,6 +38,9 @@ interface HabitDao {
 
     @Query("DELETE FROM habits WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("DELETE FROM habits")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -78,6 +81,9 @@ interface GroupDao {
     @Update
     suspend fun update(group: GroupEntity)
 
+    @Query("DELETE FROM groups")
+    suspend fun deleteAll()
+
     @Query("UPDATE groups SET collapsed = :collapsed WHERE id = :id")
     suspend fun setCollapsed(id: Long, collapsed: Boolean)
 
@@ -116,6 +122,9 @@ interface ReminderDao {
 interface TimerDao {
     @Query("SELECT * FROM timers")
     fun observeAll(): Flow<List<TimerEntity>>
+
+    @Query("SELECT * FROM timers")
+    suspend fun getAll(): List<TimerEntity>
 
     @Query("SELECT * FROM timers WHERE habitId = :habitId")
     suspend fun get(habitId: Long): TimerEntity?

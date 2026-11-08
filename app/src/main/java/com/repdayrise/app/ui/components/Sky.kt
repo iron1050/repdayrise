@@ -1,5 +1,6 @@
 package com.repdayrise.app.ui.components
 
+import android.os.Build
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -14,13 +15,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.lerp
 import com.repdayrise.app.domain.MoonPhase
@@ -114,14 +118,7 @@ fun DrawScope.drawSky(
         }
     }
 
-    // Moon (sets as the sun rises)
-    val moonAlpha = (1f - p / 0.45f).coerceIn(0f, 1f)
-    if (moonAlpha > 0.01f) {
-        val r = min(w, h) * 0.075f
-        val cx = w * 0.78f
-        val cy = h * 0.22f + p * h * 0.6f
-        drawMoon(moonPhase, Offset(cx, cy), r, moonAlpha)
-    }
+    drawSkyMoon(p, moonPhase, w, h)
 
     // Sun
     val horizonY = h * (1f - hillFraction)
@@ -160,7 +157,7 @@ fun DrawScope.drawSky(
             val span = w * 1.4f
             val drift = if (detail) (time * c.speed * w) % span else 0f
             val cx = ((c.x * w + drift) % span) - w * 0.2f
-            drawCloud(Offset(cx, c.y * h), min(w, h) * 0.16f * c.scale, Color.White.copy(alpha = cloudAlpha * c.alpha))
+            drawCloud(Offset(cx, c.y * h), min(w, h) * 0.16f * c.scale, cloudAlpha * c.alpha)
         }
     }
 
@@ -182,12 +179,36 @@ fun DrawScope.drawSky(
     drawPath(front, stop.hillFront)
 }
 
-private fun DrawScope.drawCloud(center: Offset, r: Float, color: Color) {
-    drawCircle(color, r * 0.55f, center + Offset(-r * 0.9f, r * 0.15f))
-    drawCircle(color, r * 0.75f, center + Offset(-r * 0.3f, -r * 0.1f))
-    drawCircle(color, r * 0.65f, center + Offset(r * 0.35f, 0f))
-    drawCircle(color, r * 0.5f, center + Offset(r * 0.95f, r * 0.2f))
-    drawRect(color, topLeft = center + Offset(-r * 0.9f, r * 0.05f), size = Size(r * 1.85f, r * 0.6f))
+/** The moon, which sets as the sun rises. Shared by the Canvas sky and the shader sky. */
+fun DrawScope.drawSkyMoon(progress: Float, moonPhase: Double, w: Float = size.width, h: Float = size.height) {
+    val moonAlpha = (1f - progress / 0.45f).coerceIn(0f, 1f)
+    if (moonAlpha > 0.01f) {
+        val r = min(w, h) * 0.075f
+        val cx = w * 0.78f
+        val cy = h * 0.22f + progress * h * 0.6f
+        drawMoon(moonPhase, Offset(cx, cy), r, moonAlpha)
+    }
+}
+
+/**
+ * Draws one cloud. The puffs are painted opaque into an offscreen layer and the layer is composited once at
+ * [alpha], so overlapping shapes merge into a single silhouette instead of stacking translucency.
+ */
+private fun DrawScope.drawCloud(center: Offset, r: Float, alpha: Float) {
+    val bounds = Rect(center.x - r * 1.6f, center.y - r * 1.1f, center.x + r * 1.7f, center.y + r * 1.1f)
+    drawIntoCanvas { canvas ->
+        canvas.saveLayer(bounds, Paint().apply { this.alpha = alpha })
+        val body = Color.White
+        drawCircle(body, r * 0.55f, center + Offset(-r * 0.9f, r * 0.15f))
+        drawCircle(body, r * 0.75f, center + Offset(-r * 0.3f, -r * 0.1f))
+        drawCircle(body, r * 0.65f, center + Offset(r * 0.35f, 0f))
+        drawCircle(body, r * 0.5f, center + Offset(r * 0.95f, r * 0.2f))
+        drawRoundRect(
+            body, topLeft = center + Offset(-r * 0.9f, r * 0.05f), size = Size(r * 1.85f, r * 0.6f),
+            cornerRadius = CornerRadius(r * 0.3f),
+        )
+        canvas.restore()
+    }
 }
 
 /** Draws a moon disc with the correct lit portion for [phase] (0 new, 0.5 full). */
@@ -259,9 +280,15 @@ fun SkyScene(
     hillFraction: Float = 0.24f,
     content: @Composable () -> Unit = {},
 ) {
+    val shader = rememberSunriseShader()
     Box(modifier) {
         Canvas(Modifier.fillMaxSize()) {
-            drawSky(state.progress, state.moon, state.time, hillFraction = hillFraction)
+            if (shader != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                drawSunriseShader(shader, state.progress, state.time, hillFraction)
+                drawSkyMoon(state.progress.coerceIn(0f, 1f), state.moon)
+            } else {
+                drawSky(state.progress, state.moon, state.time, hillFraction = hillFraction)
+            }
             // Soft scrim at the top keeps the date and icons legible against a bright noon sky.
             drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 1f to Color.Transparent, endY = size.height * 0.35f))
         }

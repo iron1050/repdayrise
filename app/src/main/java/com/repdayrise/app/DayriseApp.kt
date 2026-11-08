@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import com.repdayrise.app.data.DataChangeListener
+import com.repdayrise.app.data.DataBackup
 import com.repdayrise.app.data.HabitRepository
 import com.repdayrise.app.data.SettingsRepository
 import com.repdayrise.app.data.db.DayriseDatabase
@@ -15,7 +16,6 @@ import com.repdayrise.app.data.model.AppIcon
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.notifications.Channels
 import com.repdayrise.app.notifications.ReminderScheduler
-import com.repdayrise.app.notifications.TimerLiveUpdates
 import com.repdayrise.app.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +32,6 @@ class DayriseApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         Channels.ensure(this)
-        TimerLiveUpdates.follow(container)
         publishWidgetPreviewsOnce()
     }
 
@@ -53,6 +52,7 @@ class AppContainer(val context: Context) {
     val db: DayriseDatabase = DayriseDatabase.create(context)
     val settings = SettingsRepository(context)
     val repository = HabitRepository(db, appScope)
+    val backup = DataBackup(context, db, repository)
     val health = HealthConnectManager(context)
     val healthSync = HealthSync(repository, health)
     val reminderScheduler = ReminderScheduler(context)

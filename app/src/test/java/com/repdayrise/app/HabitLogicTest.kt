@@ -66,6 +66,17 @@ class HabitLogicTest {
     }
 
     @Test
+    fun liftingStyleWeeklyHabitCountsDaysWithASession() {
+        val habit = Habit(id = 1, name = "Lifting", type = HabitType.COUNT, goal = 1.0, unit = "sessions", scheduleType = ScheduleType.WEEKLY, timesPerPeriod = 3, startDate = today.minusDays(30))
+        val monday = logic.weekDays(today).first()
+        val e = entries(1, monday, monday.plusDays(2), value = 2.0) // two sessions on one day still count as one day
+        assertTrue(logic.isCompleted(habit, e, monday))
+        assertTrue(logic.isDue(habit, e, today))
+        val week = entries(1, monday, monday.plusDays(2), monday.plusDays(4))
+        assertEquals(3, logic.completedInRange(habit, week, monday, monday.plusDays(6)))
+    }
+
+    @Test
     fun moonPhaseIsInRange() {
         val p = MoonPhase.phase(today)
         assertTrue(p >= 0.0 && p < 1.0)
@@ -118,5 +129,19 @@ class HabitLogicTest {
         assertEquals(2, contributionLevel(0.5f))
         assertEquals(3, contributionLevel(0.9f))
         assertEquals(4, contributionLevel(1f))
+    }
+
+    @Test
+    fun monthProgressAveragesElapsedDaysAndIsNullForFutureOrEmptyMonths() {
+        val habit = Habit(id = 1, name = "Read", startDate = LocalDate.of(2026, 8, 1))
+        // Two elapsed days in September (1st and 2nd are due): one done, one missed -> 50%.
+        val e = entries(1, LocalDate.of(2026, 9, 1))
+        val sep = java.time.YearMonth.of(2026, 9)
+        val p = logic.monthProgress(listOf(habit), e, sep, today = LocalDate.of(2026, 9, 2))
+        assertEquals(0.5f, p!!, 0.001f)
+        // A month that has not started yet has no progress to report.
+        assertEquals(null, logic.monthProgress(listOf(habit), e, java.time.YearMonth.of(2026, 10), today = LocalDate.of(2026, 9, 2)))
+        // No habits due before the start date -> nothing to average.
+        assertEquals(null, logic.monthProgress(listOf(habit), e, java.time.YearMonth.of(2026, 7), today = LocalDate.of(2026, 9, 2)))
     }
 }

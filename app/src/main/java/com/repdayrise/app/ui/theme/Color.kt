@@ -1,16 +1,17 @@
 package com.repdayrise.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 
 // Brand
 val Sunrise = Color(0xFFF2803E)
 val SunriseDeep = Color(0xFFD9642A)
 val SunriseSoft = Color(0xFFFFD9BF)
 val Gold = Color(0xFFFFC14D)
-val Night = Color(0xFF0B1026)
-val NightSurface = Color(0xFF141A33)
-val NightSurfaceHigh = Color(0xFF1C2344)
-val NightSurfaceHighest = Color(0xFF262E52)
+val Night = Color(0xFF050509)
+val NightSurface = Color(0xFF111219)
+val NightSurfaceHigh = Color(0xFF1A1C27)
+val NightSurfaceHighest = Color(0xFF242736)
 val Indigo = Color(0xFF3A3F8F)
 val IndigoSoft = Color(0xFFDCDDFF)
 
@@ -43,5 +44,14 @@ object HabitColors {
         Color(0xFFE8536F), // rose
     )
 
-    fun of(index: Int): Color = palette[((index % palette.size) + palette.size) % palette.size]
+    /**
+     * Preset colours are stored by index (0..11). A custom colour is stored as its opaque ARGB int, which is always
+     * negative, so the two never collide and no schema change is needed.
+     */
+    fun of(index: Int): Color =
+        if (index < 0) Color(index) else palette[index % palette.size]
+
+    fun custom(color: Color): Int = color.copy(alpha = 1f).toArgb()
+
+    fun isCustom(index: Int): Boolean = index < 0
 }

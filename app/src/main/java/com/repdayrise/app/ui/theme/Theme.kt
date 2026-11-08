@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -70,13 +71,13 @@ private val DarkColors = darkColorScheme(
     onSurface = DarkText,
     surfaceVariant = NightSurfaceHigh,
     onSurfaceVariant = DarkTextMuted,
-    surfaceContainerLowest = Color(0xFF070A18),
-    surfaceContainerLow = Color(0xFF10152B),
+    surfaceContainerLowest = Color(0xFF000000),
+    surfaceContainerLow = Color(0xFF0B0C12),
     surfaceContainer = NightSurface,
     surfaceContainerHigh = NightSurfaceHigh,
     surfaceContainerHighest = NightSurfaceHighest,
-    outline = Color(0xFF4A5075),
-    outlineVariant = Color(0xFF2C3252),
+    outline = Color(0xFF474B63),
+    outlineVariant = Color(0xFF282B3D),
     error = Color(0xFFFF8A80),
     onError = Color(0xFF5A0000),
     errorContainer = Color(0xFF7A1F1F),
@@ -119,7 +120,9 @@ fun DayriseTheme(
             colorScheme = colorScheme,
             typography = DayriseTypography,
             shapes = DayriseShapes,
-            content = content,
-        )
+        ) {
+            // Screens drawn on a plain Box rather than a Scaffold or Surface would otherwise fall back to black text.
+            CompositionLocalProvider(LocalContentColor provides colorScheme.onBackground, content = content)
+        }
     }
 }
