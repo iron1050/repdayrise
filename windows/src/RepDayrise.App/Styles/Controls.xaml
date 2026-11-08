@@ -220,4 +220,31 @@
         <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
         <Setter Property="Padding" Value="18" />
     </Style>
+
+    <!-- Page scaffolding shared by the plain (non-sky) pages: detail, edit, partners, settings. -->
+    <x:Double x:Key="PageMaxWidth">820</x:Double>
+    <!-- Clears the round buttons at the top and the floating bar at the bottom. -->
+    <Thickness x:Key="PagePadding">24,64,24,120</Thickness>
+
+    <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DayriseCardStyle}" />
+
+    <Style x:Key="PageTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource HeadlineLargeStyle}">
+        <Setter Property="Margin" Value="0,0,0,16" />
+    </Style>
+
+    <Style x:Key="SectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleMediumStyle}">
+        <Setter Property="Margin" Value="2,28,0,10" />
+    </Style>
+
+    <Style x:Key="SecondaryTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodySmallStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextMutedBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="StatValueStyle" TargetType="TextBlock" BasedOn="{StaticResource HeadlineSmallStyle}" />
+
+    <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+        <Setter Property="Padding" Value="8" />
+        <Setter Property="MinWidth" Value="0" />
+    </Style>
 </ResourceDictionary>

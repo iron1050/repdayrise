@@ -24,6 +24,17 @@ public sealed partial class SettingsPage : Page
         ThemeButtons.SelectedIndex = (int)s.ThemeMode;
         WeekStartBox.SelectedIndex = s.WeekStartsMonday ? 0 : 1;
         CompletedSwitch.IsOn = s.CompletedToBottom;
+        EcoSwitch.IsOn = s.SkyQuality == Core.Data.SkyQuality.Eco;
+        var f = s.Focus;
+        ShortBreakBox.Value = f.ShortBreakMinutes;
+        LongBreakBox.Value = f.LongBreakMinutes;
+        LongEveryBox.Value = f.LongBreakEvery;
+        DailyGoalBox.Value = f.DailyGoalMinutes;
+        AutoBreakSwitch.IsOn = f.AutoStartBreaks;
+        AutoFocusSwitch.IsOn = f.AutoStartFocus;
+        PartialSwitch.IsOn = f.CountPartial;
+        QuietSwitch.IsOn = f.QuietReminders;
+        SoundSwitch.IsOn = f.Sound;
         var v = Package.Current.Id.Version;
         VersionText.Text = $"Version {v.Major}.{v.Minor}.{v.Build}";
         _loading = false;
@@ -46,6 +57,46 @@ public sealed partial class SettingsPage : Page
         if (_loading) return;
         AppServices.Settings.Update(s => s with { CompletedToBottom = CompletedSwitch.IsOn });
     }
+
+    private void OnEcoToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        AppServices.Settings.Update(s => s with { SkyQuality = EcoSwitch.IsOn ? Core.Data.SkyQuality.Eco : Core.Data.SkyQuality.High });
+    }
+
+    private void OnFocusNumber(NumberBox sender, NumberBoxValueChangedEventArgs e)
+    {
+        if (_loading || double.IsNaN(sender.Value)) return;
+        int V(NumberBox b) => (int)Math.Round(double.IsNaN(b.Value) ? b.Minimum : b.Value);
+        AppServices.Settings.Update(s => s with
+        {
+            Focus = s.Focus with
+            {
+                ShortBreakMinutes = V(ShortBreakBox),
+                LongBreakMinutes = V(LongBreakBox),
+                LongBreakEvery = V(LongEveryBox),
+                DailyGoalMinutes = V(DailyGoalBox),
+            },
+        });
+    }
+
+    private void OnFocusToggle(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        AppServices.Settings.Update(s => s with
+        {
+            Focus = s.Focus with
+            {
+                AutoStartBreaks = AutoBreakSwitch.IsOn,
+                AutoStartFocus = AutoFocusSwitch.IsOn,
+                CountPartial = PartialSwitch.IsOn,
+                QuietReminders = QuietSwitch.IsOn,
+                Sound = SoundSwitch.IsOn,
+            },
+        });
+    }
+
+    private async void OnOpenFocusSettings(object sender, RoutedEventArgs e) => await QuietHours.OpenSystemSettings();
 
     private async void OnOpenDataFolder(object sender, RoutedEventArgs e) =>
         await Launcher.LaunchFolderPathAsync(AppServices.DataFolder);
