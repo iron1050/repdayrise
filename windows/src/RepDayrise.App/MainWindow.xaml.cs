@@ -2,49 +2,94 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using RepDayrise.Controls;
+using RepDayrise.Controls.Sky;
+using RepDayrise.Core.Data;
 using RepDayrise.Core.Models;
 using RepDayrise.Services;
 using RepDayrise.Views;
+using Windows.System;
+using Windows.UI;
 using WinRT.Interop;
 
 namespace RepDayrise;
 
+/// <summary>Pages drawn over the dark sky; the window's caption buttons turn white on them.</summary>
+public interface ISkyPage;
+
 public sealed partial class MainWindow : Window
 {
-    private static readonly Dictionary<string, Type> TopLevel = new()
+    private static readonly Dictionary<Destination, Type> Destinations = new()
     {
-        ["today"] = typeof(TodayPage),
-        ["history"] = typeof(HistoryPage),
-        ["partners"] = typeof(PartnersPage),
-        ["settings"] = typeof(SettingsPage),
+        [Destination.Focus] = typeof(FocusPage),
+        [Destination.Progress] = typeof(ProgressPage),
+        [Destination.Habits] = typeof(HabitsPage),
     };
 
-    private bool _syncingSelection;
+    private Destination? _current;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _heartbeat;
+    private TaskbarProgress? _taskbar;
+    private Windows.Media.Playback.MediaPlayer? _chime;
+
+    /// <summary>Raised on the UI thread about twice a second with the focus run (after completing any due phase).</summary>
+    public static event Action<FocusRun?>? FocusHeartbeat;
 
     public MainWindow()
     {
         InitializeComponent();
         ExtendsContentIntoTitleBar = true;
-        SetTitleBar(AppTitleBar);
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        SetTitleBar(DragRegion);
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 820));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.PreferredMinimumWidth = 420;
-            presenter.PreferredMinimumHeight = 520;
+            presenter.PreferredMinimumWidth = 460;
+            presenter.PreferredMinimumHeight = 560;
         }
+        TopChrome.SizeChanged += (_, _) => DragRegion.Margin = new Thickness(TopChrome.ActualWidth + 24, 0, 0, 0);
+
+        // The GPU sky only animates while it can be seen.
+        SkyActivity.Initialize(DispatcherQueue);
+        SkyActivity.SetEco(AppServices.Settings.Current.SkyQuality == SkyQuality.Eco);
+        VisibilityChanged += (_, e) => SkyActivity.SetVisible(e.Visible && !IsMinimized());
+        Activated += (_, e) => SkyActivity.SetActive(e.WindowActivationState != WindowActivationState.Deactivated);
+        AppWindow.Changed += (_, e) =>
+        {
+            if (e.DidPresenterChange || e.DidSizeChange) SkyActivity.SetVisible(AppWindow.IsVisible && !IsMinimized());
+        };
 
         ApplyTheme(AppServices.Settings.Current.ThemeMode);
-        AppServices.SettingsChanged += s => ApplyTheme(s.ThemeMode);
+        AppServices.SettingsChanged += s =>
+        {
+            ApplyTheme(s.ThemeMode);
+            SkyActivity.SetEco(s.SkyQuality == SkyQuality.Eco);
+        };
 
-        Nav.SelectedItem = Nav.MenuItems[0];
+        Bar.Navigate += Go;
+        AddAccelerators();
+        Go(Destination.Focus);
+
+        // The focus heartbeat: completes due phases and keeps the bar, title and taskbar in step.
+        _taskbar = new TaskbarProgress(WindowNative.GetWindowHandle(this));
+        _heartbeat = DispatcherQueue.CreateTimer();
+        _heartbeat.Interval = TimeSpan.FromMilliseconds(500);
+        _heartbeat.Tick += (_, _) => Beat();
+        _heartbeat.Start();
+        AppServices.Focus.Changed += _ => AppServices.OnUi(Beat);
+        AppServices.Focus.PhaseCompleted += _ => AppServices.OnUi(Chime);
+        Beat();
+
         Root.Loaded += async (_, _) =>
         {
             if (!AppServices.Settings.Current.OnboardingDone) await Dialogs.ShowOnboarding(Root.XamlRoot);
         };
     }
+
+    private bool IsMinimized() => AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized };
 
     public void ApplyTheme(ThemeMode mode)
     {
@@ -54,14 +99,21 @@ public sealed partial class MainWindow : Window
             ThemeMode.DARK => ElementTheme.Dark,
             _ => ElementTheme.Default,
         };
-        AppWindow.TitleBar.PreferredTheme = mode switch
-        {
-            ThemeMode.LIGHT => TitleBarTheme.Light,
-            ThemeMode.DARK => TitleBarTheme.Dark,
-            _ => TitleBarTheme.UseDefaultAppMode,
-        };
+        UpdateCaptionButtons();
     }
 
+    // ---- Navigation ---------------------------------------------------------------------------
+
+    public void Go(Destination destination)
+    {
+        if (_current == destination && ContentFrame.BackStack.Count == 0) return;
+        _current = destination;
+        ContentFrame.Navigate(Destinations[destination], null, new EntranceNavigationTransitionInfo());
+        ContentFrame.BackStack.Clear(); // top-level pages are peers, not a history
+        RefreshChrome();
+    }
+
+    /// <summary>Opens a drill-in page (habit detail, edit, partner…) on top of the current one.</summary>
     public void Navigate(Type page, object? parameter = null)
     {
         if (ContentFrame.CurrentSourcePageType == page && Equals(parameter, _lastParameter)) return;
@@ -73,10 +125,29 @@ public sealed partial class MainWindow : Window
 
     public void OpenHabit(long id) => Navigate(typeof(HabitDetailPage), id);
 
+    public void OpenSettings()
+    {
+        if (ContentFrame.Content is SettingsPage) return;
+        Navigate(typeof(SettingsPage));
+    }
+
+    public void OpenPartners()
+    {
+        if (ContentFrame.Content is PartnersPage) return;
+        Navigate(typeof(PartnersPage));
+    }
+
     public void OpenFollow(string code)
     {
-        SelectTopLevel("partners");
+        OpenPartners();
         if (ContentFrame.Content is PartnersPage page) page.OpenFollow(code);
+    }
+
+    public bool GoBack()
+    {
+        if (!ContentFrame.CanGoBack) return false;
+        ContentFrame.GoBack();
+        return true;
     }
 
     public void BringToFront()
@@ -86,39 +157,97 @@ public sealed partial class MainWindow : Window
         SetForegroundWindow(WindowNative.GetWindowHandle(this));
     }
 
-    private void SelectTopLevel(string tag)
+    private void OnNavigated(object sender, NavigationEventArgs e) => RefreshChrome();
+
+    /// <summary>Back button, bar highlight and caption colours for whatever page is showing.</summary>
+    private void RefreshChrome()
     {
-        Nav.SelectedItem = tag == "settings" ? Nav.SettingsItem : Nav.MenuItems.OfType<NavigationViewItem>().First(i => (string)i.Tag == tag);
+        var drilledIn = ContentFrame.CanGoBack;
+        BackButton.Visibility = drilledIn ? Visibility.Visible : Visibility.Collapsed;
+        Bar.SetSelected(drilledIn ? null : _current);
+        UpdateCaptionButtons();
     }
 
-    private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    private void OnBack(object sender, RoutedEventArgs e) => GoBack();
+    private void OnSettings(object sender, RoutedEventArgs e) => OpenSettings();
+    private void OnPartners(object sender, RoutedEventArgs e) => OpenPartners();
+
+    private void AddAccelerators()
     {
-        if (_syncingSelection) return;
-        var tag = args.IsSettingsSelected ? "settings" : (args.SelectedItem as NavigationViewItem)?.Tag as string;
-        if (tag == null || !TopLevel.TryGetValue(tag, out var page)) return;
-        _lastParameter = null;
-        ContentFrame.Navigate(page, null, new EntranceNavigationTransitionInfo());
-        ContentFrame.BackStack.Clear(); // top-level pages are peers, not a history
-        AppTitleBar.IsBackButtonEnabled = false;
+        void Add(VirtualKey key, VirtualKeyModifiers mods, Action action)
+        {
+            var a = new KeyboardAccelerator { Key = key, Modifiers = mods };
+            a.Invoked += (_, args) => { action(); args.Handled = true; };
+            Root.KeyboardAccelerators.Add(a);
+        }
+        Add(VirtualKey.Number1, VirtualKeyModifiers.Control, () => Go(Destination.Focus));
+        Add(VirtualKey.Number2, VirtualKeyModifiers.Control, () => Go(Destination.Progress));
+        Add(VirtualKey.Number3, VirtualKeyModifiers.Control, () => Go(Destination.Habits));
+        Add(VirtualKey.Number4, VirtualKeyModifiers.Control, OpenPartners);
+        Add((VirtualKey)188, VirtualKeyModifiers.Control, OpenSettings); // Ctrl+,
+        Add(VirtualKey.Escape, VirtualKeyModifiers.None, () => GoBack());
+        Root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
     }
 
-    private void OnNavigated(object sender, NavigationEventArgs e)
+    // ---- Focus heartbeat ----------------------------------------------------------------------
+
+    private void Beat()
     {
-        AppTitleBar.IsBackButtonEnabled = ContentFrame.CanGoBack;
-        // Keep the pane selection in step when Back returns to a top-level page.
-        var tag = TopLevel.FirstOrDefault(kv => kv.Value == e.SourcePageType).Key;
-        if (tag == null) return;
-        _syncingSelection = true;
-        SelectTopLevel(tag);
-        _syncingSelection = false;
+        var focus = AppServices.Focus;
+        var run = focus.Tick();
+        var now = focus.Now;
+        Bar.ShowRun(run, now);
+
+        // Time left in the window title shows on the taskbar thumbnail and Alt+Tab.
+        Title = run is { AwaitingStart: false }
+            ? $"{FloatingBar.FormatClock(run.RemainingMs(now))} · {(run.IsBreak ? "Break" : "Focus")} — RepDayrise"
+            : "RepDayrise";
+        _taskbar?.Set(
+            run == null || run.AwaitingStart ? TaskbarProgress.State.None : run.Running ? TaskbarProgress.State.Normal : TaskbarProgress.State.Paused,
+            run?.Fraction(now) ?? 0);
+
+        FocusHeartbeat?.Invoke(run);
     }
 
-    private void OnBackRequested(TitleBar sender, object args)
+    /// <summary>
+    /// The phase-end toast has its own sound, but Windows Focus mutes it; then a soft in-app chime still says the
+    /// phase is over, as long as the app is running and sound is on.
+    /// </summary>
+    private void Chime()
     {
-        if (ContentFrame.CanGoBack) ContentFrame.GoBack();
+        if (!AppServices.Settings.Current.Focus.Sound || !QuietHours.SystemFocusActive) return;
+        try
+        {
+            var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Media", "Windows Notify Calendar.wav");
+            if (!File.Exists(file)) return;
+            _chime ??= new Windows.Media.Playback.MediaPlayer { Volume = 0.6 };
+            _chime.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(file));
+            _chime.Play();
+        }
+        catch (Exception e)
+        {
+            System.Diagnostics.Debug.WriteLine($"Chime failed: {e}");
+        }
     }
 
-    private void OnPaneToggleRequested(TitleBar sender, object args) => Nav.IsPaneOpen = !Nav.IsPaneOpen;
+    // ---- Caption buttons ----------------------------------------------------------------------
+
+    /// <summary>White caption glyphs over the sky; theme-coloured elsewhere.</summary>
+    private void UpdateCaptionButtons()
+    {
+        var tb = AppWindow.TitleBar;
+        var dark = Root.ActualTheme == ElementTheme.Dark;
+        var onSky = ContentFrame.Content is ISkyPage;
+        var fg = onSky || dark ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(255, 0x1A, 0x1B, 0x2E);
+        tb.ButtonBackgroundColor = Color.FromArgb(0, 0, 0, 0);
+        tb.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0);
+        tb.ButtonForegroundColor = fg;
+        tb.ButtonInactiveForegroundColor = Color.FromArgb(140, fg.R, fg.G, fg.B);
+        tb.ButtonHoverBackgroundColor = Color.FromArgb(40, fg.R, fg.G, fg.B);
+        tb.ButtonHoverForegroundColor = fg;
+        tb.ButtonPressedBackgroundColor = Color.FromArgb(64, fg.R, fg.G, fg.B);
+        tb.ButtonPressedForegroundColor = fg;
+    }
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -1,0 +1,21 @@
+<Page
+    x:Class="RepDayrise.Views.FocusHistoryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:RepDayrise.Controls"
+    Background="{ThemeResource AppBackgroundBrush}">
+
+    <ScrollViewer>
+      <controls:ViewportPanel>
+        <StackPanel MaxWidth="760" Padding="24,64,24,120" Spacing="8">
+            <TextBlock Text="Focus sessions" Style="{StaticResource HeadlineLargeStyle}" />
+            <TextBlock Text="Right-click a session to move it to another habit or delete it. Minutes move with it."
+                       Style="{StaticResource BodyMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" Margin="0,0,0,12" />
+            <TextBlock x:Name="EmptyText" Text="No focus sessions yet. Start one from the Focus page."
+                       Style="{StaticResource BodyLargeStyle}" Foreground="{ThemeResource TextMutedBrush}" Visibility="Collapsed" />
+            <StackPanel x:Name="List" Spacing="8" />
+            <Button x:Name="MoreButton" Content="Show older sessions" HorizontalAlignment="Center" Margin="0,12,0,0" Click="OnMore" />
+        </StackPanel>
+      </controls:ViewportPanel>
+    </ScrollViewer>
+</Page>

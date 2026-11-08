@@ -66,7 +66,7 @@ windows/   Windows 11 application (C#, WinUI 3, MSIX)
 
 ## Windows
 
-A native Windows version lives in [`windows/`](windows/README.md). It is built with C#, WinUI 3 and the Fluent design language, and installs as an MSIX with Start-menu uninstall. It shares the partner backend, so Android and Windows can follow each other.
+A native Windows version lives in [`windows/`](windows/README.md), built around focus sessions: countdowns with optional breaks under the same shader-drawn sunrise sky as the phone, counted toward your timer habits. It is built with C# and WinUI 3, and installs as an MSIX with Start-menu uninstall. It shares the partner backend, so Android and Windows can follow each other.
 
 ## Status
 

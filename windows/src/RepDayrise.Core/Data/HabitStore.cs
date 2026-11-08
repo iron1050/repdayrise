@@ -4,18 +4,19 @@ using RepDayrise.Core.Models;
 namespace RepDayrise.Core.Data;
 
 [Flags]
-public enum DataChange { Habits = 1, Entries = 2, Groups = 4, Timers = 8 }
+public enum DataChange { Habits = 1, Entries = 2, Groups = 4, Timers = 8, Focus = 16 }
 
 /// <summary>
 /// The habit database: habits, entries, groups, reminders and timers, mirroring the Android Room schema.
 ///
 /// The schema is ready for a future sync between devices. Synced rows carry a GUID <c>uid</c> and an <c>updatedAt</c>.
 /// Deletes are soft (<c>deletedAt</c>). A cleared entry is kept as value 0 with a fresh <c>updatedAt</c> so a merge can
-/// tell "cleared" from "never logged". Timers are per device and are not synced. Every write goes through this class.
+/// tell "cleared" from "never logged". Timers and the running focus session are per device and are not synced;
+/// finished focus sessions are. Every write goes through this class.
 /// </summary>
-public sealed class HabitStore
+public sealed partial class HabitStore
 {
-    private const int SchemaVersion = 1;
+    internal const int SchemaVersion = 2;
     private readonly string _connectionString;
 
     /// <summary>Raised after a write commits, on the writing thread.</summary>
@@ -35,13 +36,25 @@ public sealed class HabitStore
         return c;
     }
 
+    /// <summary>Brings the schema up to <see cref="SchemaVersion"/>, one step per version, each in its own transaction.</summary>
     private void Migrate()
     {
         using var c = Open();
+        Exec(c, "PRAGMA journal_mode = WAL"); // can't change inside a transaction
         var version = Convert.ToInt32(Scalar(c, "PRAGMA user_version"));
-        if (version >= SchemaVersion) return;
-        Exec(c, """
-            PRAGMA journal_mode = WAL;
+        if (version < 1) Step(c, 1, SchemaV1);
+        if (version < 2) Step(c, 2, SchemaV2);
+    }
+
+    private static void Step(SqliteConnection c, int version, string sql)
+    {
+        using var tx = c.BeginTransaction();
+        Exec(c, sql);
+        Exec(c, $"PRAGMA user_version = {version}");
+        tx.Commit();
+    }
+
+    private const string SchemaV1 = """
             CREATE TABLE IF NOT EXISTS groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 uid TEXT NOT NULL UNIQUE,
@@ -100,9 +113,7 @@ public sealed class HabitStore
                 accumulatedMs INTEGER NOT NULL,
                 running INTEGER NOT NULL
             );
-            """);
-        Exec(c, $"PRAGMA user_version = {SchemaVersion}");
-    }
+            """;
 
     // ---- Reads ------------------------------------------------------------------------------
 

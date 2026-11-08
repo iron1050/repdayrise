@@ -15,6 +15,9 @@ public static class Program
     {
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
+        // Widgets (planned): Windows starts the widget provider as "-RegisterProcessAsComServer". Handle that here,
+        // before the single-instance redirect, with AppServices.InitializeCore() and no window. See windows/README.md.
+
         var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
         var main = AppInstance.FindOrRegisterForKey("main");
         if (!main.IsCurrent)

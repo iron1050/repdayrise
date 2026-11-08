@@ -12,6 +12,7 @@ namespace RepDayrise.Services;
 public sealed class ReminderScheduler
 {
     private const int DaysAhead = 7;
+    private const string Group = "reminders";
     private CancellationTokenSource? _pending;
 
     /// <summary>Reschedules soon, coalescing bursts of edits.</summary>
@@ -27,7 +28,8 @@ public sealed class ReminderScheduler
         try
         {
             var notifier = ToastNotificationManager.CreateToastNotifier();
-            foreach (var old in notifier.GetScheduledToastNotifications()) notifier.RemoveFromSchedule(old);
+            // Only ours: the focus phase-end toast lives in the same schedule and must survive a reschedule.
+            foreach (var old in notifier.GetScheduledToastNotifications().Where(t => t.Group == Group)) notifier.RemoveFromSchedule(old);
 
             var store = AppServices.Store;
             var habits = store.GetAllHabits().Where(h => !h.Archived).ToList();
@@ -35,6 +37,7 @@ public sealed class ReminderScheduler
             var logic = AppServices.Logic;
             var now = DateTimeOffset.Now;
             var today = EpochDay.Today();
+            var holdUntil = QuietHours.HoldRemindersUntil() is long ms ? DateTimeOffset.FromUnixTimeMilliseconds(ms).ToLocalTime() : (DateTimeOffset?)null;
 
             foreach (var habit in habits)
             foreach (var reminder in habit.Reminders.Where(r => r.Enabled))
@@ -46,11 +49,13 @@ public sealed class ReminderScheduler
                 if (offset == 0 && !logic.IsDue(habit, entries, day)) continue;
                 if (offset == 0 && logic.IsCompleted(habit, entries, day)) continue;
                 var at = new DateTimeOffset(day.ToDateTime(new TimeOnly(reminder.Hour, reminder.Minute)));
+                // During a focus phase, hold the nudge until just after it ends.
+                if (holdUntil is { } hold && at < hold) at = at > now ? hold.AddMinutes(1) : at;
                 if (at <= now.AddSeconds(5)) continue;
                 notifier.AddToSchedule(new ScheduledToastNotification(Toast(habit), at)
                 {
                     Id = $"r{reminder.Id}d{offset}", // ids are limited to 16 characters
-                    Group = "reminders",
+                    Group = Group,
                 });
             }
         }

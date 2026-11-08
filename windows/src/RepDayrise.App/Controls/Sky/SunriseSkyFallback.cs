@@ -10,25 +10,15 @@ using RepDayrise.Core.Models;
 using Windows.Foundation;
 using Windows.UI;
 
-namespace RepDayrise.Controls;
+namespace RepDayrise.Controls.Sky;
 
 /// <summary>
-/// The living sky: finish your habits and the sun rises. A port of the Android app's Sky.kt.
+/// The CPU-drawn living sky (XAML shapes), used when the GPU shader in <see cref="SkyCanvas"/> can't run.
 /// <see cref="Progress"/> 0..1 raises the sun and shifts night to day; stars twinkle and clouds drift while visible.
 /// </summary>
-public sealed partial class SunriseSky : UserControl
+public sealed partial class SunriseSkyFallback : UserControl
 {
     private sealed record Stop(Color Top, Color Mid, Color Horizon, Color HillBack, Color HillFront, Color Sun);
-
-    /// <summary>Colour keyframes from deep night (0) to full daylight (1).</summary>
-    private static readonly (float At, Stop Stop)[] Stops =
-    [
-        (0.00f, new Stop(C(0x05060F), C(0x0F1633), C(0x1B2450), C(0x0E1230), C(0x06081A), C(0xFF7A3D))),
-        (0.25f, new Stop(C(0x12173A), C(0x3A2F6B), C(0xB14E63), C(0x241F4E), C(0x0E1130), C(0xFF8A3D))),
-        (0.50f, new Stop(C(0x223066), C(0xC2587A), C(0xF79B5E), C(0x3A2C5C), C(0x1C1740), C(0xFFA24A))),
-        (0.75f, new Stop(C(0x3F7BC4), C(0xF2A566), C(0xFFD08A), C(0x4B4C7A), C(0x2B2A55), C(0xFFC55C))),
-        (1.00f, new Stop(C(0x3B8FE0), C(0x8CC7F5), C(0xE2F1FF), C(0x6C8FBF), C(0x4A6CA0), C(0xFFE27A))),
-    ];
 
     private sealed record Star(float X, float Y, float Size, float Phase, float Speed);
     private sealed record Cloud(float X, float Y, float Scale, float Speed, float Alpha);
@@ -43,10 +33,10 @@ public sealed partial class SunriseSky : UserControl
     private const float HillFraction = 0.24f;
 
     public static readonly DependencyProperty ProgressProperty = DependencyProperty.Register(
-        nameof(Progress), typeof(double), typeof(SunriseSky), new PropertyMetadata(0.0, (d, _) => ((SunriseSky)d).OnProgressChanged()));
+        nameof(Progress), typeof(double), typeof(SunriseSkyFallback), new PropertyMetadata(0.0, (d, _) => ((SunriseSkyFallback)d).OnProgressChanged()));
 
     public static readonly DependencyProperty DateProperty = DependencyProperty.Register(
-        nameof(Date), typeof(DateTimeOffset), typeof(SunriseSky), new PropertyMetadata(DateTimeOffset.Now, (d, _) => ((SunriseSky)d).Render()));
+        nameof(Date), typeof(DateTimeOffset), typeof(SunriseSkyFallback), new PropertyMetadata(DateTimeOffset.Now, (d, _) => ((SunriseSkyFallback)d).Render()));
 
     public double Progress { get => (double)GetValue(ProgressProperty); set => SetValue(ProgressProperty, value); }
     public DateTimeOffset Date { get => (DateTimeOffset)GetValue(DateProperty); set => SetValue(DateProperty, value); }
@@ -76,7 +66,7 @@ public sealed partial class SunriseSky : UserControl
     private bool _rendering;
     private int _frame;
 
-    public SunriseSky()
+    public SunriseSkyFallback()
     {
         IsTabStop = false;
         _sky.Fill = _skyBrush;
@@ -331,17 +321,11 @@ public sealed partial class SunriseSky : UserControl
 
     private static Stop At(float p)
     {
-        for (var i = 0; i < Stops.Length - 1; i++)
-        {
-            var (p0, s0) = Stops[i];
-            var (p1, s1) = Stops[i + 1];
-            if (p > p1) continue;
-            var t = Math.Clamp((p - p0) / (p1 - p0), 0f, 1f);
-            return new Stop(Lerp(s0.Top, s1.Top, t), Lerp(s0.Mid, s1.Mid, t), Lerp(s0.Horizon, s1.Horizon, t),
-                Lerp(s0.HillBack, s1.HillBack, t), Lerp(s0.HillFront, s1.HillFront, t), Lerp(s0.Sun, s1.Sun, t));
-        }
-        return Stops[^1].Stop;
+        var s = SkyPalette.At(p);
+        return new Stop(ToColor(s.Top), ToColor(s.Mid), ToColor(s.Horizon), ToColor(s.HillBack), ToColor(s.HillFront), ToColor(s.Sun));
     }
+
+    private static Color ToColor(Rgb c) => Color.FromArgb(0xFF, c.R8, c.G8, c.B8);
 
     private static LinearGradientBrush Gradient(double startY, double endY) =>
         new() { StartPoint = new Point(0.5, startY), EndPoint = new Point(0.5, endY) };

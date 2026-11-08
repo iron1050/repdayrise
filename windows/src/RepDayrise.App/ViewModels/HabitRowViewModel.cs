@@ -11,6 +11,7 @@ namespace RepDayrise.ViewModels;
 public interface IHabitRowHost
 {
     void OpenHabit(HabitRowViewModel row);
+    void StartFocus(HabitRowViewModel row);
     void EditHabit(HabitRowViewModel row);
     Task SetValue(HabitRowViewModel row);
     Task ArchiveHabit(HabitRowViewModel row);
@@ -41,6 +42,8 @@ public sealed partial class HabitRowViewModel(IHabitRowHost host) : ObservableOb
     [ObservableProperty] public partial string CheckLabel { get; set; } = "";
     [ObservableProperty] public partial SolidColorBrush CheckBackground { get; set; } = new();
     [ObservableProperty] public partial double CheckIconOpacity { get; set; }
+    [ObservableProperty] public partial Brush WashBrush { get; set; } = new SolidColorBrush();
+    [ObservableProperty] public partial string StreakText { get; set; } = "";
 
     private ActiveTimer? _timer;
 
@@ -54,7 +57,22 @@ public sealed partial class HabitRowViewModel(IHabitRowHost host) : ObservableOb
 
         Name = habit.Name;
         Glyph = HabitVisuals.Glyph(habit.Icon);
-        if (ColorBrush.Color != color) ColorBrush = new SolidColorBrush(color);
+        if (ColorBrush.Color != color)
+        {
+            ColorBrush = new SolidColorBrush(color);
+            WashBrush = new LinearGradientBrush
+            {
+                StartPoint = new Windows.Foundation.Point(0, 0.5),
+                EndPoint = new Windows.Foundation.Point(1, 0.5),
+                GradientStops =
+                {
+                    new GradientStop { Color = HabitVisuals.WithAlpha(color, 0.20), Offset = 0 },
+                    new GradientStop { Color = HabitVisuals.WithAlpha(color, 0.0), Offset = 0.6 },
+                },
+            };
+        }
+        var streak = logic.Stats(habit, entries, date).CurrentStreak;
+        StreakText = streak > 1 ? $"🔥 {streak}" : "";
         IsCheck = habit.Type == HabitType.CHECK;
         IsCount = habit.Type == HabitType.COUNT;
         IsTimer = habit.Type == HabitType.TIMER;
@@ -102,6 +120,7 @@ public sealed partial class HabitRowViewModel(IHabitRowHost host) : ObservableOb
     // ---- Actions (bound with x:Bind) ------------------------------------------------------
 
     public void Open() => host.OpenHabit(this);
+    public void StartFocus() => host.StartFocus(this);
     public void Edit() => host.EditHabit(this);
     public async void SetExact() => await host.SetValue(this);
     public async void Archive() => await host.ArchiveHabit(this);

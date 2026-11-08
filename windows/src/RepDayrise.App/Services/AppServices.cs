@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.UI.Dispatching;
 using RepDayrise.Core.Data;
 using RepDayrise.Core.Domain;
+using RepDayrise.Core.Focus;
 using RepDayrise.Core.Sharing;
 using Windows.Storage;
 
@@ -17,6 +18,7 @@ public static class AppServices
     public static SettingsStore Settings { get; private set; } = null!;
     public static SharingService Sharing { get; private set; } = null!;
     public static ReminderScheduler Reminders { get; private set; } = null!;
+    public static FocusService Focus { get; private set; } = null!;
 
     /// <summary>Data folder inside the package. Windows removes it when the app is uninstalled.</summary>
     public static string DataFolder { get; private set; } = "";
@@ -32,14 +34,26 @@ public static class AppServices
 
     public static HabitLogic Logic => new(Settings.Current.WeekStartsMonday ? DayOfWeek.Monday : DayOfWeek.Sunday);
 
-    public static void Initialize(DispatcherQueue ui)
+    /// <summary>
+    /// The UI-free services: data, settings, sharing and focus. Kept separate so a future widget provider, which runs
+    /// as a COM server in this package without a window, can share them.
+    /// </summary>
+    public static void InitializeCore()
     {
-        _ui = ui;
+        if (Store != null) return;
         DataFolder = ApplicationData.Current.LocalFolder.Path;
         Store = new HabitStore(Path.Combine(DataFolder, "dayrise.db"));
         Settings = new SettingsStore(Path.Combine(DataFolder, "settings.json"));
         Sharing = new SharingService(Path.Combine(DataFolder, "sharing.json"), new StoreSnapshotSource(Store, Settings), DefaultSharingUrl());
+        Focus = new FocusService(Store, new FocusNotifier());
+    }
+
+    public static void Initialize(DispatcherQueue ui)
+    {
+        _ui = ui;
+        InitializeCore();
         Reminders = new ReminderScheduler();
+        QuietHours.Initialize();
 
         _coalesce = ui.CreateTimer();
         _coalesce.Interval = TimeSpan.FromMilliseconds(50);
@@ -53,6 +67,10 @@ public static class AppServices
             {
                 Sharing.RequestSync();
                 Reminders.RequestReschedule();
+            }
+            else if (change.HasFlag(DataChange.Focus))
+            {
+                Reminders.RequestReschedule(); // reminders are held while a focus phase runs
             }
         };
         Sharing.Changed += () => OnUi(() => SharingChanged?.Invoke());

@@ -33,6 +33,9 @@ public sealed partial class EditHabitPage : Page
         var id = e.Parameter is long l ? l : 0;
         var existing = id > 0 ? AppServices.Store.GetHabit(id) : null;
         _habit = existing ?? new Habit { Name = "", ColorIndex = AppServices.Store.GetAllHabits().Count % HabitVisuals.Palette.Length };
+        // A new timer habit, e.g. from the Focus page's habit picker.
+        if (existing == null && e.Parameter is HabitType type)
+            _habit = _habit with { Type = type, Goal = type == HabitType.TIMER ? 60 : _habit.Goal, Icon = type == HabitType.TIMER ? "timer" : _habit.Icon };
         PageTitle.Text = existing == null ? "New habit" : "Edit habit";
         DeleteButton.Visibility = existing == null ? Visibility.Collapsed : Visibility.Visible;
         Populate();

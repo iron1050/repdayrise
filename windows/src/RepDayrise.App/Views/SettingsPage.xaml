@@ -1,19 +1,59 @@
 <Page
     x:Class="RepDayrise.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:RepDayrise.Controls">
 
     <ScrollViewer>
+      <controls:ViewportPanel>
         <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Padding="{StaticResource PagePadding}">
             <TextBlock Text="Settings" Style="{StaticResource PageTitleStyle}" />
 
-            <TextBlock Text="Appearance" Style="{StaticResource SectionHeaderStyle}" Margin="2,0,0,8" />
+            <TextBlock Text="Focus" Style="{StaticResource SectionHeaderStyle}" Margin="2,0,0,8" />
             <Border Style="{StaticResource CardStyle}">
-                <RadioButtons x:Name="ThemeButtons" Header="Theme" SelectionChanged="OnThemeChanged">
-                    <x:String>Use system setting</x:String>
-                    <x:String>Light</x:String>
-                    <x:String>Dark</x:String>
-                </RadioButtons>
+                <StackPanel Spacing="16">
+                    <Grid ColumnSpacing="12" RowSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <NumberBox x:Name="ShortBreakBox" Header="Short break (min)" Minimum="1" Maximum="120" SpinButtonPlacementMode="Compact" ValueChanged="OnFocusNumber" />
+                        <NumberBox x:Name="LongBreakBox" Grid.Column="1" Header="Long break (min)" Minimum="1" Maximum="120" SpinButtonPlacementMode="Compact" ValueChanged="OnFocusNumber" />
+                        <NumberBox x:Name="LongEveryBox" Grid.Column="2" Header="Long break every" Minimum="1" Maximum="8" SpinButtonPlacementMode="Compact" ValueChanged="OnFocusNumber" />
+                    </Grid>
+                    <NumberBox x:Name="DailyGoalBox" Header="Daily focus goal (min) — keeps your focus streak going" Minimum="5" Maximum="720"
+                               SmallChange="5" LargeChange="30" SpinButtonPlacementMode="Compact" MaxWidth="320" HorizontalAlignment="Left" ValueChanged="OnFocusNumber" />
+                    <ToggleSwitch x:Name="AutoBreakSwitch" Header="Start breaks automatically" Toggled="OnFocusToggle" />
+                    <ToggleSwitch x:Name="AutoFocusSwitch" Header="Start the next focus automatically after a break" Toggled="OnFocusToggle" />
+                    <ToggleSwitch x:Name="PartialSwitch" Header="Count focus that's stopped or skipped early (a minute or more)" Toggled="OnFocusToggle" />
+                    <ToggleSwitch x:Name="QuietSwitch" Header="Hold habit reminders while focusing" Toggled="OnFocusToggle" />
+                    <ToggleSwitch x:Name="SoundSwitch" Header="Chime at the end of a phase when Windows Focus mutes notifications" Toggled="OnFocusToggle" />
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Do not disturb" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap"
+                                       Text="Apps can't switch Windows Focus on for you. Turn it on in Windows to silence every app while you work." />
+                        </StackPanel>
+                        <HyperlinkButton Grid.Column="1" Content="Windows Focus settings" Click="OnOpenFocusSettings" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Appearance" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="16">
+                    <RadioButtons x:Name="ThemeButtons" Header="Theme" SelectionChanged="OnThemeChanged">
+                        <x:String>Use system setting</x:String>
+                        <x:String>Light</x:String>
+                        <x:String>Dark</x:String>
+                    </RadioButtons>
+                    <ToggleSwitch x:Name="EcoSwitch" Header="Eco sky: animate the sky at a lower frame rate to save power" Toggled="OnEcoToggled" />
+                </StackPanel>
             </Border>
 
             <TextBlock Text="Habits" Style="{StaticResource SectionHeaderStyle}" />
@@ -63,5 +103,6 @@
                 </StackPanel>
             </Border>
         </StackPanel>
+      </controls:ViewportPanel>
     </ScrollViewer>
 </Page>
