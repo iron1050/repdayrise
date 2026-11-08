@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using RepDayrise.Controls;
 using RepDayrise.Controls.Sky;
 using RepDayrise.Core.Data;
 using RepDayrise.Core.Models;
@@ -17,7 +16,10 @@ using WinRT.Interop;
 
 namespace RepDayrise;
 
-/// <summary>Pages drawn over the dark sky; the window's caption buttons turn white on them.</summary>
+/// <summary>The three top-level destinations in the title bar.</summary>
+public enum Destination { Focus, Progress, Habits }
+
+/// <summary>Pages drawn over the dark sky: the title bar switches to light-on-dark over them.</summary>
 public interface ISkyPage;
 
 public sealed partial class MainWindow : Window
@@ -30,8 +32,9 @@ public sealed partial class MainWindow : Window
     };
 
     private Destination? _current;
+    private bool _syncingTabs;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _heartbeat;
-    private TaskbarProgress? _taskbar;
+    private readonly TaskbarProgress _taskbar;
     private Windows.Media.Playback.MediaPlayer? _chime;
 
     /// <summary>Raised on the UI thread about twice a second with the focus run (after completing any due phase).</summary>
@@ -42,15 +45,14 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         ExtendsContentIntoTitleBar = true;
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
-        SetTitleBar(DragRegion);
+        SetTitleBar(AppTitleBar);
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 820));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.PreferredMinimumWidth = 460;
-            presenter.PreferredMinimumHeight = 560;
+            presenter.PreferredMinimumWidth = 560;
+            presenter.PreferredMinimumHeight = 600;
         }
-        TopChrome.SizeChanged += (_, _) => DragRegion.Margin = new Thickness(TopChrome.ActualWidth + 24, 0, 0, 0);
 
         // The GPU sky only animates while it can be seen.
         SkyActivity.Initialize(DispatcherQueue);
@@ -69,11 +71,13 @@ public sealed partial class MainWindow : Window
             SkyActivity.SetEco(s.SkyQuality == SkyQuality.Eco);
         };
 
-        Bar.Navigate += Go;
+        Motion.FadeOnVisibility(LiveTimer, rise: 0);
+        RightTools.SizeChanged += (_, _) => BalanceTabs();
+        Root.SizeChanged += (_, _) => BalanceTabs();
         AddAccelerators();
         Go(Destination.Focus);
 
-        // The focus heartbeat: completes due phases and keeps the bar, title and taskbar in step.
+        // The focus heartbeat: completes due phases and keeps the title, taskbar and live timer in step.
         _taskbar = new TaskbarProgress(WindowNative.GetWindowHandle(this));
         _heartbeat = DispatcherQueue.CreateTimer();
         _heartbeat.Interval = TimeSpan.FromMilliseconds(500);
@@ -99,7 +103,7 @@ public sealed partial class MainWindow : Window
             ThemeMode.DARK => ElementTheme.Dark,
             _ => ElementTheme.Default,
         };
-        UpdateCaptionButtons();
+        RefreshChrome();
     }
 
     // ---- Navigation ---------------------------------------------------------------------------
@@ -107,8 +111,16 @@ public sealed partial class MainWindow : Window
     public void Go(Destination destination)
     {
         if (_current == destination && ContentFrame.BackStack.Count == 0) return;
+        // Slide in the direction of travel along the tabs, like a segmented control.
+        var from = _current;
         _current = destination;
-        ContentFrame.Navigate(Destinations[destination], null, new EntranceNavigationTransitionInfo());
+        NavigationTransitionInfo transition = from == null || !Motion.Enabled
+            ? new SuppressNavigationTransitionInfo()
+            : new SlideNavigationTransitionInfo
+            {
+                Effect = destination > from ? SlideNavigationTransitionEffect.FromRight : SlideNavigationTransitionEffect.FromLeft,
+            };
+        ContentFrame.Navigate(Destinations[destination], null, transition);
         ContentFrame.BackStack.Clear(); // top-level pages are peers, not a history
         RefreshChrome();
     }
@@ -159,18 +171,45 @@ public sealed partial class MainWindow : Window
 
     private void OnNavigated(object sender, NavigationEventArgs e) => RefreshChrome();
 
-    /// <summary>Back button, bar highlight and caption colours for whatever page is showing.</summary>
+    private void OnTabChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (_syncingTabs || sender.SelectedItem?.Tag is not string tag) return;
+        var destination = Enum.Parse<Destination>(tag);
+        if (ContentFrame.CanGoBack) _current = null; // leaving a drill-in page: always navigate
+        Go(destination);
+    }
+
+    /// <summary>Back button, tab selection and title bar colours for whatever page is showing.</summary>
     private void RefreshChrome()
     {
         var drilledIn = ContentFrame.CanGoBack;
-        BackButton.Visibility = drilledIn ? Visibility.Visible : Visibility.Collapsed;
-        Bar.SetSelected(drilledIn ? null : _current);
-        UpdateCaptionButtons();
+        AppTitleBar.IsBackButtonVisible = drilledIn;
+        AppTitleBar.IsBackButtonEnabled = drilledIn;
+        BalanceTabs();
+
+        _syncingTabs = true;
+        foreach (var item in Tabs.Items) item.IsSelected = !drilledIn && (string)item.Tag == _current?.ToString();
+        _syncingTabs = false;
+
+        // Over the sky the bar is always light-on-dark, whatever the app theme.
+        var onSky = ContentFrame.Content is ISkyPage;
+        AppTitleBar.RequestedTheme = onSky ? ElementTheme.Dark : ElementTheme.Default;
+        UpdateCaptionButtons(onSky);
     }
 
-    private void OnBack(object sender, RoutedEventArgs e) => GoBack();
+    /// <summary>Pads the left of the title bar to match the right (tools + window buttons), centring the tabs.</summary>
+    private void BalanceTabs()
+    {
+        var scale = Root.XamlRoot?.RasterizationScale ?? 1.0;
+        var captions = AppWindow.TitleBar.RightInset / scale;
+        var back = AppTitleBar.IsBackButtonVisible ? 44 : 0;
+        LeftBalance.Width = Math.Max(0, RightTools.ActualWidth + 8 + captions - back);
+    }
+
+    private void OnBackRequested(TitleBar sender, object args) => GoBack();
     private void OnSettings(object sender, RoutedEventArgs e) => OpenSettings();
     private void OnPartners(object sender, RoutedEventArgs e) => OpenPartners();
+    private void OnLiveTimer(object sender, RoutedEventArgs e) { _current = null; Go(Destination.Focus); }
 
     private void AddAccelerators()
     {
@@ -180,9 +219,9 @@ public sealed partial class MainWindow : Window
             a.Invoked += (_, args) => { action(); args.Handled = true; };
             Root.KeyboardAccelerators.Add(a);
         }
-        Add(VirtualKey.Number1, VirtualKeyModifiers.Control, () => Go(Destination.Focus));
-        Add(VirtualKey.Number2, VirtualKeyModifiers.Control, () => Go(Destination.Progress));
-        Add(VirtualKey.Number3, VirtualKeyModifiers.Control, () => Go(Destination.Habits));
+        Add(VirtualKey.Number1, VirtualKeyModifiers.Control, () => { _current = ContentFrame.CanGoBack ? null : _current; Go(Destination.Focus); });
+        Add(VirtualKey.Number2, VirtualKeyModifiers.Control, () => { _current = ContentFrame.CanGoBack ? null : _current; Go(Destination.Progress); });
+        Add(VirtualKey.Number3, VirtualKeyModifiers.Control, () => { _current = ContentFrame.CanGoBack ? null : _current; Go(Destination.Habits); });
         Add(VirtualKey.Number4, VirtualKeyModifiers.Control, OpenPartners);
         Add((VirtualKey)188, VirtualKeyModifiers.Control, OpenSettings); // Ctrl+,
         Add(VirtualKey.Escape, VirtualKeyModifiers.None, () => GoBack());
@@ -196,13 +235,23 @@ public sealed partial class MainWindow : Window
         var focus = AppServices.Focus;
         var run = focus.Tick();
         var now = focus.Now;
-        Bar.ShowRun(run, now);
 
-        // Time left in the window title shows on the taskbar thumbnail and Alt+Tab.
+        // A live timer in the title bar while a session runs and you're looking at something else.
+        var showLive = run is { AwaitingStart: false } && ContentFrame.Content is not FocusPage;
+        LiveTimer.Visibility = showLive ? Visibility.Visible : Visibility.Collapsed;
+        if (showLive)
+        {
+            LiveTime.Text = TimeText.Clock(run!.RemainingMs(now));
+            LiveDot.Fill = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[run.IsBreak ? "OnSkySecondaryBrush" : "SunriseBrush"];
+            LiveDot.Opacity = run.Running ? 1 : 0.4;
+            AutomationPropertiesHelper.SetName(LiveTimer, $"{(run.IsBreak ? "Break" : "Focus")}, {TimeText.Spoken(run.RemainingMs(now))} left");
+        }
+
+        // Time left in the window title shows on the taskbar thumbnail and in Alt+Tab.
         Title = run is { AwaitingStart: false }
-            ? $"{FloatingBar.FormatClock(run.RemainingMs(now))} · {(run.IsBreak ? "Break" : "Focus")} — RepDayrise"
+            ? $"{TimeText.Clock(run.RemainingMs(now))} {(run.IsBreak ? "break" : "focus")} – RepDayrise"
             : "RepDayrise";
-        _taskbar?.Set(
+        _taskbar.Set(
             run == null || run.AwaitingStart ? TaskbarProgress.State.None : run.Running ? TaskbarProgress.State.Normal : TaskbarProgress.State.Paused,
             run?.Fraction(now) ?? 0);
 
@@ -232,24 +281,27 @@ public sealed partial class MainWindow : Window
 
     // ---- Caption buttons ----------------------------------------------------------------------
 
-    /// <summary>White caption glyphs over the sky; theme-coloured elsewhere.</summary>
-    private void UpdateCaptionButtons()
+    private void UpdateCaptionButtons(bool onSky)
     {
         var tb = AppWindow.TitleBar;
-        var dark = Root.ActualTheme == ElementTheme.Dark;
-        var onSky = ContentFrame.Content is ISkyPage;
-        var fg = onSky || dark ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(255, 0x1A, 0x1B, 0x2E);
+        var dark = onSky || Root.ActualTheme == ElementTheme.Dark;
+        var fg = dark ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(255, 0x1B, 0x1B, 0x1F);
         tb.ButtonBackgroundColor = Color.FromArgb(0, 0, 0, 0);
         tb.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0);
         tb.ButtonForegroundColor = fg;
         tb.ButtonInactiveForegroundColor = Color.FromArgb(140, fg.R, fg.G, fg.B);
-        tb.ButtonHoverBackgroundColor = Color.FromArgb(40, fg.R, fg.G, fg.B);
+        tb.ButtonHoverBackgroundColor = Color.FromArgb(28, fg.R, fg.G, fg.B);
         tb.ButtonHoverForegroundColor = fg;
-        tb.ButtonPressedBackgroundColor = Color.FromArgb(64, fg.R, fg.G, fg.B);
+        tb.ButtonPressedBackgroundColor = Color.FromArgb(48, fg.R, fg.G, fg.B);
         tb.ButtonPressedForegroundColor = fg;
     }
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+}
+
+internal static class AutomationPropertiesHelper
+{
+    public static void SetName(UIElement el, string name) => Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(el, name);
 }

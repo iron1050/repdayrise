@@ -102,6 +102,6 @@ public partial class App : Application
             case "stop": focus.Stop(); break;
             case "extend5": focus.Extend(TimeSpan.FromMinutes(5)); break;
         }
-        Window?.Go(Controls.Destination.Focus);
+        Window?.Go(Destination.Focus);
     }
 }
