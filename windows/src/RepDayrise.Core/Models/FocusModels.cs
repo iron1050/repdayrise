@@ -61,8 +61,10 @@ public sealed record FocusRun
     /// <summary>Time already run before the last resume.</summary>
     public long AccumulatedMs { get; init; }
     public bool Running { get; init; }
-    /// <summary>The phase is set up but waits for the user to start it (auto-start is off).</summary>
+    /// <summary>The phase is set up but waits for the user to start it (auto-start is off, or nobody was there).</summary>
     public bool AwaitingStart { get; init; }
+    /// <summary>An extra focus phase added after one finished ("+5 min"); it doesn't count toward the long break.</summary>
+    public bool Bonus { get; init; }
 
     public long ElapsedMs(long now) => AccumulatedMs + (Running ? Math.Max(now - PhaseStartedAt, 0) : 0);
 
