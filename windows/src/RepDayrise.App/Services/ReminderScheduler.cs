@@ -12,6 +12,7 @@ namespace RepDayrise.Services;
 public sealed class ReminderScheduler
 {
     private const int DaysAhead = 7;
+    private const string Group = "reminders";
     private CancellationTokenSource? _pending;
 
     /// <summary>Reschedules soon, coalescing bursts of edits.</summary>
@@ -27,7 +28,8 @@ public sealed class ReminderScheduler
         try
         {
             var notifier = ToastNotificationManager.CreateToastNotifier();
-            foreach (var old in notifier.GetScheduledToastNotifications()) notifier.RemoveFromSchedule(old);
+            // Only ours: the focus phase-end toast lives in the same schedule and must survive a reschedule.
+            foreach (var old in notifier.GetScheduledToastNotifications().Where(t => t.Group == Group)) notifier.RemoveFromSchedule(old);
 
             var store = AppServices.Store;
             var habits = store.GetAllHabits().Where(h => !h.Archived).ToList();
@@ -50,7 +52,7 @@ public sealed class ReminderScheduler
                 notifier.AddToSchedule(new ScheduledToastNotification(Toast(habit), at)
                 {
                     Id = $"r{reminder.Id}d{offset}", // ids are limited to 16 characters
-                    Group = "reminders",
+                    Group = Group,
                 });
             }
         }
