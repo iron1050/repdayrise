@@ -18,7 +18,8 @@ internal static class MoonRenderer
     {
         var alpha = SkyPalette.MoonAlpha(progress);
         if (alpha <= 0.01f) return;
-        var r = MathF.Min(w, h) * 0.075f;
+        // Sized for the phone hero; on a full desktop window that's too much moon, so cap it.
+        var r = MathF.Min(MathF.Min(w, h) * 0.075f, 30f);
         var center = new Vector2(w * 0.78f, h * 0.22f + progress * h * 0.6f);
 
         using (var glow = new CanvasRadialGradientBrush(ds,
@@ -30,7 +31,7 @@ internal static class MoonRenderer
         {
             ds.FillCircle(center, r * 2.4f, glow);
         }
-        ds.FillCircle(center, r, WithAlpha(Dark, alpha * 0.9f));
+        ds.FillCircle(center, r, WithAlpha(Dark, alpha * 0.6f)); // the unlit part: a faint disc, not a hole
         if (phase < 0.02 || phase > 0.98) return;
 
         var c = (float)Math.Cos(2 * Math.PI * phase); // +1 new, 0 quarter, -1 full

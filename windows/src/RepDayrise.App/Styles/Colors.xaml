@@ -2,14 +2,12 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Port of the Android app's ui/theme/Color.kt and Theme.kt colour schemes. -->
+    <!--
+        Native Windows 11 surfaces (Mica behind everything, layer fills and hairline strokes on top) with one brand
+        accent. The sky is the only place colour gets loud.
+    -->
 
-    <!-- Brand -->
     <Color x:Key="SunriseColor">#F2803E</Color>
-    <Color x:Key="SunriseDeepColor">#D9642A</Color>
-    <Color x:Key="SunriseSoftColor">#FFD9BF</Color>
-    <Color x:Key="GoldColor">#FFC14D</Color>
-    <Color x:Key="IndigoColor">#3A3F8F</Color>
     <Color x:Key="FlameColor">#FF6B3D</Color>
 
     <!-- The accent every Fluent control uses -->
@@ -23,52 +21,39 @@
 
     <SolidColorBrush x:Key="SunriseBrush" Color="#F2803E" />
     <SolidColorBrush x:Key="FlameBrush" Color="#FF6B3D" />
-    <SolidColorBrush x:Key="OnSkyBrush" Color="White" />
-    <SolidColorBrush x:Key="OnSkyMutedBrush" Color="#9EFFFFFF" />
 
-    <!-- Primary buttons: Dayrise's warm sunrise pill -->
-    <LinearGradientBrush x:Key="SunrisePillBrush" StartPoint="0,0.5" EndPoint="1,0.5">
-        <GradientStop Offset="0" Color="#FF9A4D" />
-        <GradientStop Offset="0.5" Color="#F2803E" />
-        <GradientStop Offset="1" Color="#E85D8A" />
-    </LinearGradientBrush>
+    <!-- On the sky: solid white for anything read, a clearly secondary but still solid tone for the rest. -->
+    <SolidColorBrush x:Key="OnSkyBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="OnSkySecondaryBrush" Color="#E6FFFFFF" />
+    <SolidColorBrush x:Key="SkyControlBrush" Color="#2E0B0E1F" />
+    <SolidColorBrush x:Key="SkyControlHoverBrush" Color="#470B0E1F" />
+    <SolidColorBrush x:Key="SkyHairlineBrush" Color="#33FFFFFF" />
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#050509" />
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#111219" />
-            <SolidColorBrush x:Key="SurfaceHighBrush" Color="#1A1C27" />
-            <SolidColorBrush x:Key="SurfaceHighestBrush" Color="#242736" />
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F2F1F8" />
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#A9ACC7" />
-            <SolidColorBrush x:Key="OutlineBrush" Color="#282B3D" />
-            <SolidColorBrush x:Key="PrimaryBrush" Color="#FFB067" />
-            <!-- Floating bar and its round buttons -->
-            <SolidColorBrush x:Key="BarBrush" Color="#EB1C2030" />
-            <SolidColorBrush x:Key="BarSelectedBrush" Color="#FF3A3D4A" />
-            <SolidColorBrush x:Key="BarBorderBrush" Color="#14FFFFFF" />
-            <!-- Glass panels over the sky -->
-            <SolidColorBrush x:Key="GlassBorderBrush" Color="#1FFFFFFF" />
-            <AcrylicBrush x:Key="GlassPanelBrush" TintColor="#050509" TintOpacity="0.72" TintLuminosityOpacity="0.85" FallbackColor="#E6111219" />
-            <SolidColorBrush x:Key="CardBrush" Color="#111219" />
-            <SolidColorBrush x:Key="CardBorderBrush" Color="#14FFFFFF" />
+            <!-- Pages are transparent so Mica shows through, as in Windows' own apps. -->
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#A9AAB2" />
+            <SolidColorBrush x:Key="OutlineBrush" Color="#2E2F36" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#1AFFFFFF" />
+            <SolidColorBrush x:Key="PrimaryBrush" Color="#FF9A5C" />
+            <SolidColorBrush x:Key="CardBrush" Color="#0DFFFFFF" />
+            <SolidColorBrush x:Key="CardBorderBrush" Color="#19000000" />
+            <SolidColorBrush x:Key="CardHoverBrush" Color="#08FFFFFF" />
+            <SolidColorBrush x:Key="SurfaceHighestBrush" Color="#14FFFFFF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F7F4EE" />
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="SurfaceHighBrush" Color="#F1EDE5" />
-            <SolidColorBrush x:Key="SurfaceHighestBrush" Color="#E9E4DA" />
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1B2E" />
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#5E6078" />
-            <SolidColorBrush x:Key="OutlineBrush" Color="#E3DFD6" />
-            <SolidColorBrush x:Key="PrimaryBrush" Color="#F2803E" />
-            <SolidColorBrush x:Key="BarBrush" Color="#F5E9E4DA" />
-            <SolidColorBrush x:Key="BarSelectedBrush" Color="#FFC9C3B8" />
-            <SolidColorBrush x:Key="BarBorderBrush" Color="#14000000" />
-            <SolidColorBrush x:Key="GlassBorderBrush" Color="#8CFFFFFF" />
-            <AcrylicBrush x:Key="GlassPanelBrush" TintColor="#F7F4EE" TintOpacity="0.72" TintLuminosityOpacity="0.85" FallbackColor="#E6F7F4EE" />
-            <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1B1B1F" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#5D5E66" />
+            <SolidColorBrush x:Key="OutlineBrush" Color="#DEDEE3" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#0F000000" />
+            <SolidColorBrush x:Key="PrimaryBrush" Color="#D9642A" />
+            <SolidColorBrush x:Key="CardBrush" Color="#B3FFFFFF" />
             <SolidColorBrush x:Key="CardBorderBrush" Color="#0F000000" />
+            <SolidColorBrush x:Key="CardHoverBrush" Color="#08000000" />
+            <SolidColorBrush x:Key="SurfaceHighestBrush" Color="#0A000000" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

@@ -19,7 +19,7 @@ namespace RepDayrise.Controls.Sky;
 public sealed partial class SkyCanvas : UserControl
 {
     /// <summary>Keep the render target near this many pixels; the sky is soft and the dither hides upscaling.</summary>
-    private const double PixelBudget = 1_500_000;
+    private const double PixelBudget = 3_800_000; // a maximised 1440p window renders at full resolution
     private const double TweenSeconds = 1.4;
 
     public static readonly DependencyProperty ProgressProperty = DependencyProperty.Register(
@@ -90,7 +90,12 @@ public sealed partial class SkyCanvas : UserControl
             return;
         }
         if (_canvas != null) return;
-        _canvas = new CanvasAnimatedControl { IsFixedTimeStep = false, ClearColor = Windows.UI.Color.FromArgb(255, 5, 6, 15) };
+        // Rounded skies clear to transparent and clip their own drawing: swap chains ignore XAML/visual clips.
+        _canvas = new CanvasAnimatedControl
+        {
+            IsFixedTimeStep = false,
+            ClearColor = ClipRadius > 0 ? Windows.UI.Color.FromArgb(0, 0, 0, 0) : Windows.UI.Color.FromArgb(255, 5, 6, 15),
+        };
         _canvas.Draw += OnDraw;
         _canvas.CreateResources += (_, _) => _effect = new PixelShaderEffect<SunriseShader>();
         Content = _canvas;
@@ -187,6 +192,9 @@ public sealed partial class SkyCanvas : UserControl
         float w = (float)size.Width, h = (float)size.Height;
         var px = ds.Dpi / 96f;
         var stop = SkyPalette.At(p);
+        var radius = (float)ClipRadius;
+        using var clip = radius > 0 ? Microsoft.Graphics.Canvas.Geometry.CanvasGeometry.CreateRoundedRectangle(ds, 0, 0, w, h, radius, radius) : null;
+        using var layer = clip != null ? ds.CreateLayer(1f, clip) : null;
         try
         {
             effect.ConstantBuffer = new SunriseShader(

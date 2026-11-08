@@ -1,18 +1,17 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:RepDayrise.Services">
 
     <!--
-        Dayrise surfaces: round floating-bar buttons, the sunrise pill, glass panels over the sky and cards.
-        Ports of HomeChrome.kt and Glass.kt. Each button template shares one hover/press overlay.
+        Quiet, native surfaces. Buttons ease their hover in and squash on a spring when pressed (Motion.Press);
+        cards are Windows 11 layers with a hairline stroke. The sky gets its own small set: a white capsule for the
+        one main action and plain text buttons for everything else.
     -->
 
-    <x:Double x:Key="BarHeight">52</x:Double>
-    <x:Double x:Key="FloatingBarClearance">96</x:Double>
-    <CornerRadius x:Key="CardRadius">20</CornerRadius>
-    <CornerRadius x:Key="PanelRadius">28</CornerRadius>
+    <CornerRadius x:Key="CardRadius">10</CornerRadius>
 
-    <!-- A button whose look is all Background/BorderBrush/CornerRadius, with a soft overlay on hover and press. -->
+    <!-- A button drawn entirely from Background/BorderBrush/CornerRadius, with an eased hover/press tint. -->
     <ControlTemplate x:Key="SoftButtonTemplate" TargetType="Button">
         <Grid x:Name="Root" Background="Transparent">
             <Border x:Name="Surface"
@@ -20,7 +19,7 @@
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}"
                     CornerRadius="{TemplateBinding CornerRadius}" />
-            <Border x:Name="Overlay" Background="{ThemeResource TextPrimaryBrush}" Opacity="0"
+            <Border x:Name="Overlay" Background="{TemplateBinding Foreground}" Opacity="0"
                     CornerRadius="{TemplateBinding CornerRadius}" IsHitTestVisible="False" />
             <ContentPresenter x:Name="Content"
                               Padding="{TemplateBinding Padding}"
@@ -29,21 +28,22 @@
                               Content="{TemplateBinding Content}"
                               ContentTemplate="{TemplateBinding ContentTemplate}"
                               Foreground="{TemplateBinding Foreground}" />
-            <Grid.RenderTransform>
-                <ScaleTransform x:Name="Scale" />
-            </Grid.RenderTransform>
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroup x:Name="CommonStates">
-                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Normal">
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="Overlay" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18" />
+                        </Storyboard>
+                    </VisualState>
                     <VisualState x:Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Target="Overlay.Opacity" Value="0.08" />
-                        </VisualState.Setters>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="Overlay" Storyboard.TargetProperty="Opacity" To="0.07" Duration="0:0:0.12" />
+                        </Storyboard>
                     </VisualState>
                     <VisualState x:Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Target="Overlay.Opacity" Value="0.14" />
-                        </VisualState.Setters>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="Overlay" Storyboard.TargetProperty="Opacity" To="0.12" Duration="0:0:0.06" />
+                        </Storyboard>
                     </VisualState>
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
@@ -63,156 +63,41 @@
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}" />
         <Setter Property="UseSystemFocusVisuals" Value="True" />
         <Setter Property="FocusVisualMargin" Value="-3" />
+        <Setter Property="services:Motion.Press" Value="True" />
     </Style>
 
-    <!-- Round end button of the floating bar (52 dp on Android). -->
-    <Style x:Key="BarButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-        <Setter Property="Width" Value="52" />
+    <!-- Title bar icon button (Partners, Settings, Back). -->
+    <Style x:Key="ChromeButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <!-- On the sky: the single main action. White, quiet, unmistakable. -->
+    <Style x:Key="SkyPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
         <Setter Property="Height" Value="52" />
+        <Setter Property="MinWidth" Value="176" />
         <Setter Property="CornerRadius" Value="26" />
-        <Setter Property="Background" Value="{ThemeResource BarBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource BarBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Foreground" Value="{ThemeResource TextMutedBrush}" />
-    </Style>
-
-    <!-- Centre pill of the floating bar. -->
-    <Style x:Key="BarPillStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-        <Setter Property="Height" Value="52" />
-        <Setter Property="CornerRadius" Value="26" />
-        <Setter Property="Padding" Value="18,0,16,0" />
-        <Setter Property="Background" Value="{ThemeResource BarBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource BarBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-    </Style>
-
-    <!-- Small round translucent button on the sky (GlassCircleButton). -->
-    <Style x:Key="GlassCircleButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-        <Setter Property="Width" Value="40" />
-        <Setter Property="Height" Value="40" />
-        <Setter Property="CornerRadius" Value="20" />
-        <Setter Property="Background" Value="#29FFFFFF" />
-        <Setter Property="BorderBrush" Value="#38FFFFFF" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Foreground" Value="White" />
-    </Style>
-
-    <!-- The primary action: a warm gradient pill. -->
-    <Style x:Key="SunrisePillButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-        <Setter Property="Height" Value="56" />
-        <Setter Property="MinWidth" Value="168" />
-        <Setter Property="CornerRadius" Value="28" />
-        <Setter Property="Padding" Value="28,0" />
-        <Setter Property="Background" Value="{StaticResource SunrisePillBrush}" />
-        <Setter Property="Foreground" Value="White" />
-        <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="FontSize" Value="17" />
-    </Style>
-
-    <!-- A secondary action on the sky: frosted outline pill. -->
-    <Style x:Key="GlassPillButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-        <Setter Property="Height" Value="48" />
-        <Setter Property="MinWidth" Value="48" />
-        <Setter Property="CornerRadius" Value="24" />
-        <Setter Property="Padding" Value="18,0" />
-        <Setter Property="Background" Value="#26FFFFFF" />
-        <Setter Property="BorderBrush" Value="#3DFFFFFF" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Padding" Value="32,0" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Foreground" Value="#15161C" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontSize" Value="16" />
     </Style>
 
-    <!-- Selectable chip (e.g. 25 / 50 / 90 min) on the sky. -->
-    <ControlTemplate x:Key="ChipTemplate" TargetType="ToggleButton">
-        <Grid x:Name="Root">
-            <Border x:Name="Surface" Background="#1FFFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1"
-                    CornerRadius="{TemplateBinding CornerRadius}" />
-            <ContentPresenter x:Name="Content" Padding="{TemplateBinding Padding}"
-                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                              Content="{TemplateBinding Content}" Foreground="White" />
-            <VisualStateManager.VisualStateGroups>
-                <VisualStateGroup x:Name="CommonStates">
-                    <VisualState x:Name="Normal" />
-                    <VisualState x:Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Target="Surface.Background" Value="#33FFFFFF" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState x:Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Target="Surface.Background" Value="#40FFFFFF" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState x:Name="Checked">
-                        <VisualState.Setters>
-                            <Setter Target="Surface.Background" Value="White" />
-                            <Setter Target="Surface.BorderBrush" Value="White" />
-                            <Setter Target="Content.Foreground" Value="#1A1B2E" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState x:Name="CheckedPointerOver">
-                        <VisualState.Setters>
-                            <Setter Target="Surface.Background" Value="#F2FFFFFF" />
-                            <Setter Target="Surface.BorderBrush" Value="White" />
-                            <Setter Target="Content.Foreground" Value="#1A1B2E" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState x:Name="CheckedPressed">
-                        <VisualState.Setters>
-                            <Setter Target="Surface.Background" Value="#E6FFFFFF" />
-                            <Setter Target="Content.Foreground" Value="#1A1B2E" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState x:Name="Disabled">
-                        <VisualState.Setters>
-                            <Setter Target="Root.Opacity" Value="0.4" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState x:Name="CheckedDisabled">
-                        <VisualState.Setters>
-                            <Setter Target="Root.Opacity" Value="0.4" />
-                            <Setter Target="Surface.Background" Value="White" />
-                            <Setter Target="Content.Foreground" Value="#1A1B2E" />
-                        </VisualState.Setters>
-                    </VisualState>
-                </VisualStateGroup>
-            </VisualStateManager.VisualStateGroups>
-        </Grid>
-    </ControlTemplate>
-
-    <Style x:Key="SkyChipStyle" TargetType="ToggleButton">
-        <Setter Property="Template" Value="{StaticResource ChipTemplate}" />
-        <Setter Property="Height" Value="36" />
-        <Setter Property="MinWidth" Value="56" />
-        <Setter Property="CornerRadius" Value="18" />
+    <!-- On the sky: secondary actions read as text, tinted only on hover. -->
+    <Style x:Key="SkyTextButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+        <Setter Property="Height" Value="38" />
+        <Setter Property="CornerRadius" Value="19" />
         <Setter Property="Padding" Value="14,0" />
-        <Setter Property="FontFamily" Value="{StaticResource ManropeFontFamily}" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource OnSkySecondaryBrush}" />
         <Setter Property="FontSize" Value="14" />
-        <Setter Property="UseSystemFocusVisuals" Value="True" />
     </Style>
 
-    <!-- Frosted panel over the sky (frosted()/glassBorder in Glass.kt). -->
-    <Style x:Key="GlassPanelStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource GlassPanelBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource GlassBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{StaticResource PanelRadius}" />
-    </Style>
-
-    <!-- A frosted strip on the sky itself: always light-on-dark. -->
-    <Style x:Key="SkyGlassStyle" TargetType="Border">
-        <Setter Property="Background" Value="#33000000" />
-        <Setter Property="BorderBrush" Value="#33FFFFFF" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="22" />
-    </Style>
-
-    <!-- GlowCard: the standard card. -->
+    <!-- Cards: Windows 11 layer surfaces. -->
     <Style x:Key="DayriseCardStyle" TargetType="Border">
         <Setter Property="Background" Value="{ThemeResource CardBrush}" />
         <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
@@ -220,20 +105,32 @@
         <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
         <Setter Property="Padding" Value="18" />
     </Style>
-
-    <!-- Page scaffolding shared by the plain (non-sky) pages: detail, edit, partners, settings. -->
-    <x:Double x:Key="PageMaxWidth">820</x:Double>
-    <!-- Clears the round buttons at the top and the floating bar at the bottom. -->
-    <Thickness x:Key="PagePadding">24,64,24,120</Thickness>
-
     <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DayriseCardStyle}" />
 
-    <Style x:Key="PageTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource HeadlineLargeStyle}">
-        <Setter Property="Margin" Value="0,0,0,16" />
+    <!-- An inset grouped list: one card, rows separated by hairlines. -->
+    <Style x:Key="GroupedListStyle" TargetType="Border" BasedOn="{StaticResource DayriseCardStyle}">
+        <Setter Property="Padding" Value="0" />
     </Style>
 
-    <Style x:Key="SectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleMediumStyle}">
-        <Setter Property="Margin" Value="2,28,0,10" />
+    <!-- A row inside a grouped list. -->
+    <Style x:Key="ListRowButtonStyle" TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="services:Motion.Press" Value="False" />
+    </Style>
+
+    <!-- Page scaffolding for the plain pages (detail, edit, partners, settings). -->
+    <x:Double x:Key="PageMaxWidth">760</x:Double>
+    <Thickness x:Key="PagePadding">32,72,32,48</Thickness>
+
+    <Style x:Key="PageTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource HeadlineLargeStyle}">
+        <Setter Property="Margin" Value="0,0,0,20" />
+    </Style>
+
+    <Style x:Key="SectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleSmallStyle}">
+        <Setter Property="Margin" Value="4,28,0,8" />
     </Style>
 
     <Style x:Key="SecondaryTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodySmallStyle}">
