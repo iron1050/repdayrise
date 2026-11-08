@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:RepDayrise.Controls"
+    xmlns:sky="using:RepDayrise.Controls.Sky"
     xmlns:vm="using:RepDayrise.ViewModels"
     NavigationCacheMode="Required">
 
@@ -160,7 +161,7 @@
 
             <!-- The sunrise -->
             <Grid Height="230">
-                <controls:SunriseSky x:Name="Sky" />
+                <sky:SkyCanvas x:Name="Sky" ClipRadius="8" />
                 <StackPanel VerticalAlignment="Bottom" Margin="20,0,20,16">
                     <TextBlock x:Name="ProgressText" Foreground="White" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <TextBlock x:Name="ProgressDetail" Foreground="White" Opacity="0.85" Style="{StaticResource CaptionTextBlockStyle}" />

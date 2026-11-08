@@ -64,7 +64,7 @@ public sealed partial class TodayPage : Page, IHabitRowHost
         BackToTodayButton.Visibility = isToday ? Visibility.Collapsed : Visibility.Visible;
         var (done, due) = logic.DayCounts(habits, entries, _selected);
         var progress = logic.DayProgress(habits, entries, _selected);
-        Sky.Date = new DateTimeOffset(_selected.ToDateTime(TimeOnly.MinValue));
+        Sky.Date = _selected;
         Sky.Progress = progress;
         ProgressText.Text = due == 0 ? "A quiet day" : done == due ? "The sun is up" : $"{done} of {due} done";
         ProgressDetail.Text = due == 0

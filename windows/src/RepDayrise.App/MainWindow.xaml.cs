@@ -36,6 +36,15 @@ public sealed partial class MainWindow : Window
             presenter.PreferredMinimumHeight = 520;
         }
 
+        // The GPU sky only animates while it can be seen.
+        Controls.Sky.SkyActivity.Initialize(DispatcherQueue);
+        VisibilityChanged += (_, e) => Controls.Sky.SkyActivity.SetVisible(e.Visible && !IsMinimized());
+        Activated += (_, e) => Controls.Sky.SkyActivity.SetActive(e.WindowActivationState != WindowActivationState.Deactivated);
+        AppWindow.Changed += (_, e) =>
+        {
+            if (e.DidPresenterChange || e.DidSizeChange) Controls.Sky.SkyActivity.SetVisible(AppWindow.IsVisible && !IsMinimized());
+        };
+
         ApplyTheme(AppServices.Settings.Current.ThemeMode);
         AppServices.SettingsChanged += s => ApplyTheme(s.ThemeMode);
 
@@ -45,6 +54,8 @@ public sealed partial class MainWindow : Window
             if (!AppServices.Settings.Current.OnboardingDone) await Dialogs.ShowOnboarding(Root.XamlRoot);
         };
     }
+
+    private bool IsMinimized() => AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized };
 
     public void ApplyTheme(ThemeMode mode)
     {
