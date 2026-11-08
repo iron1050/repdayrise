@@ -42,8 +42,8 @@ public sealed partial class HabitRowViewModel(IHabitRowHost host) : ObservableOb
     [ObservableProperty] public partial string CheckLabel { get; set; } = "";
     [ObservableProperty] public partial SolidColorBrush CheckBackground { get; set; } = new();
     [ObservableProperty] public partial double CheckIconOpacity { get; set; }
-    [ObservableProperty] public partial Brush WashBrush { get; set; } = new SolidColorBrush();
-    [ObservableProperty] public partial string StreakText { get; set; } = "";
+    /// <summary>Whether a hairline separates this row from the next one in its group.</summary>
+    [ObservableProperty] public partial bool ShowDivider { get; set; }
 
     private ActiveTimer? _timer;
 
@@ -57,29 +57,15 @@ public sealed partial class HabitRowViewModel(IHabitRowHost host) : ObservableOb
 
         Name = habit.Name;
         Glyph = HabitVisuals.Glyph(habit.Icon);
-        if (ColorBrush.Color != color)
-        {
-            ColorBrush = new SolidColorBrush(color);
-            WashBrush = new LinearGradientBrush
-            {
-                StartPoint = new Windows.Foundation.Point(0, 0.5),
-                EndPoint = new Windows.Foundation.Point(1, 0.5),
-                GradientStops =
-                {
-                    new GradientStop { Color = HabitVisuals.WithAlpha(color, 0.20), Offset = 0 },
-                    new GradientStop { Color = HabitVisuals.WithAlpha(color, 0.0), Offset = 0.6 },
-                },
-            };
-        }
+        if (ColorBrush.Color != color) ColorBrush = new SolidColorBrush(color);
         var streak = logic.Stats(habit, entries, date).CurrentStreak;
-        StreakText = streak > 1 ? $"🔥 {streak}" : "";
         IsCheck = habit.Type == HabitType.CHECK;
         IsCount = habit.Type == HabitType.COUNT;
         IsTimer = habit.Type == HabitType.TIMER;
         IsMeasurable = habit.IsMeasurable;
         IsDone = logic.IsCompleted(habit, value);
         Percent = logic.Fraction(habit, value) * 100;
-        CheckBackground = new SolidColorBrush(IsDone ? color : HabitVisuals.WithAlpha(color, 0.12));
+        CheckBackground = new SolidColorBrush(IsDone ? color : HabitVisuals.WithAlpha(color, 0));
         CheckIconOpacity = IsDone ? 1 : 0.0;
         CheckLabel = IsDone ? $"Mark {habit.Name} not done" : $"Mark {habit.Name} done";
 
@@ -102,7 +88,8 @@ public sealed partial class HabitRowViewModel(IHabitRowHost host) : ObservableOb
             var done = logic.CompletedCountInPeriod(habit, entries, date);
             parts.Add($"{Math.Min(done, habit.TimesPerPeriod)} of {habit.TimesPerPeriod} this {(habit.ScheduleType == ScheduleType.WEEKLY ? "week" : "month")}");
         }
-        Subtitle = string.Join(" · ", parts);
+        if (streak > 1) parts.Add($"{streak}-{logic.Stats(habit, entries, date).StreakUnit.TrimEnd('s')} streak");
+        Subtitle = string.Join(", ", parts);
         Tick();
     }
 

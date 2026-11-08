@@ -36,7 +36,7 @@ public sealed partial class SettingsPage : Page
         QuietSwitch.IsOn = f.QuietReminders;
         SoundSwitch.IsOn = f.Sound;
         var v = Package.Current.Id.Version;
-        VersionText.Text = $"Version {v.Major}.{v.Minor}.{v.Build}";
+        AboutCard.Description = $"Version {v.Major}.{v.Minor}.{v.Build}";
         _loading = false;
     }
 
@@ -97,6 +97,9 @@ public sealed partial class SettingsPage : Page
     }
 
     private async void OnOpenFocusSettings(object sender, RoutedEventArgs e) => await QuietHours.OpenSystemSettings();
+
+    private async void OnOpenNotifications(object sender, RoutedEventArgs e) =>
+        await Launcher.LaunchUriAsync(new Uri("ms-settings:notifications"));
 
     private async void OnOpenDataFolder(object sender, RoutedEventArgs e) =>
         await Launcher.LaunchFolderPathAsync(AppServices.DataFolder);

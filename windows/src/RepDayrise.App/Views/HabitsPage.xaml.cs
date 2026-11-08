@@ -2,9 +2,11 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml.Shapes;
 using RepDayrise.Core.Domain;
 using RepDayrise.Core.Models;
 using RepDayrise.Services;
@@ -12,8 +14,8 @@ using RepDayrise.ViewModels;
 
 namespace RepDayrise.Views;
 
-/// <summary>Today's habits, grouped, with the week above. A port of the Android list view.</summary>
-public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
+/// <summary>The day's habits, grouped, with the week above.</summary>
+public sealed partial class HabitsPage : Page, IHabitRowHost
 {
     private readonly ObservableCollection<HabitSectionViewModel> _sections = [];
     private readonly Dictionary<long, HabitRowViewModel> _rows = [];
@@ -28,6 +30,7 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
         _ticker = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _ticker.Interval = TimeSpan.FromSeconds(1);
         _ticker.Tick += (_, _) => OnTick();
+        Motion.FadeOnVisibility(BackToTodayButton, rise: 0);
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -58,20 +61,18 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
         var completedToBottom = AppServices.Settings.Current.CompletedToBottom;
         var culture = CultureInfo.CurrentCulture;
 
-        // Header: tinted from indigo to green as the day fills (the Android list header)
+        // Large title
         var isToday = _selected == _today;
-        DayRelative.Text = isToday ? "Today" : _selected == _today.AddDays(-1) ? "Yesterday" : _selected.ToString("dddd", culture);
-        DayDate.Text = ", " + _selected.ToString("d MMM", culture);
+        TitleText.Text = isToday ? "Today" : _selected == _today.AddDays(-1) ? "Yesterday" : _selected.ToString("dddd", culture);
+        DateText.Text = _selected.ToString(isToday ? "dddd, d MMMM" : "d MMMM yyyy", culture);
         BackToTodayButton.Visibility = isToday ? Visibility.Collapsed : Visibility.Visible;
-        var (done, due) = logic.DayCounts(habits, entries, _selected);
-        var progress = logic.DayProgress(habits, entries, _selected);
-        ProgressText.Text = due == 0 ? "A quiet day" : done == due ? "The sun is up" : $"{done} of {due} done";
-        ProgressDetail.Text = due == 0
-            ? MoonPhase.Name(_selected)
-            : $"{Math.Round(progress * 100)}% of the way to sunrise · {MoonPhase.Name(_selected)}";
-        HeaderTint.Background = HeaderBrush(progress);
 
-        BuildWeekStrip(habits, entries, logic);
+        var (done, due) = logic.DayCounts(habits, entries, _selected);
+        DayBar.Value = logic.DayProgress(habits, entries, _selected);
+        ProgressText.Text = due == 0 ? "Nothing due" : done >= due ? "All done" : $"{done} of {due} done";
+        DayProgress.Visibility = habits.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+        BuildWeekStrip(habits, entries, logic, culture);
 
         // Sections: ungrouped habits first, then each group in order.
         var visible = habits.Where(h => logic.IsDue(h, entries, _selected)).ToList();
@@ -97,13 +98,14 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
             section.Title = title;
             section.IsCollapsed = collapsed;
             var ordered = completedToBottom ? list.OrderBy(h => logic.IsCompleted(h, entries, _selected)).ToList() : list;
-            section.Summary = $"{list.Count(h => logic.IsCompleted(h, entries, _selected))}/{list.Count}";
+            section.Summary = $"{list.Count(h => logic.IsCompleted(h, entries, _selected))} of {list.Count}";
 
-            var rows = ordered.Select(h =>
+            var rows = ordered.Select((h, index) =>
             {
                 seen.Add(h.Id);
                 if (!_rows.TryGetValue(h.Id, out var row)) _rows[h.Id] = row = new HabitRowViewModel(this);
                 row.Update(h, _selected, entries, timers.GetValueOrDefault(h.Id), logic);
+                row.ShowDivider = index < ordered.Count - 1;
                 return row;
             }).ToList();
             if (!section.Rows.SequenceEqual(rows))
@@ -118,8 +120,8 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
         EmptyState.Visibility = layout.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (habits.Count == 0)
         {
-            EmptyTitle.Text = "Start your first habit";
-            EmptyBody.Text = "Add something you want to do regularly. Each habit you finish raises the sun a little higher.";
+            EmptyTitle.Text = "No habits yet";
+            EmptyBody.Text = "Add something you want to do regularly. Each one you finish raises the sun a little.";
             EmptyAddButton.Visibility = Visibility.Visible;
         }
         else
@@ -132,89 +134,86 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
         if (timers.Values.Any(t => t.Running)) _ticker.Start(); else _ticker.Stop();
     }
 
-    private void BuildWeekStrip(IReadOnlyList<Habit> habits, EntryMap entries, HabitLogic logic)
+    /// <summary>The week as a calendar row: weekday, date in a circle (filled when selected), a dot when the day was done.</summary>
+    private void BuildWeekStrip(IReadOnlyList<Habit> habits, EntryMap entries, HabitLogic logic, CultureInfo culture)
     {
         WeekStrip.Children.Clear();
         WeekStrip.ColumnDefinitions.Clear();
-        var culture = CultureInfo.CurrentCulture;
+        var accent = (Brush)Application.Current.Resources["SunriseBrush"];
+        var muted = (Brush)Resources.ThemeLookup("TextMutedBrush");
+        var ink = (Brush)Resources.ThemeLookup("TextPrimaryBrush");
+
+        AddArrow("", "Previous week", -7, 0);
         var days = logic.WeekDays(_selected);
         for (var i = 0; i < days.Count; i++)
         {
             var date = days[i];
-            WeekStrip.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var future = date > _today;
             var selected = date == _selected;
-
-            // A day chip on the tinted header: name, number and a thin bar of how much got done.
-            var ink = new SolidColorBrush(selected ? Windows.UI.Color.FromArgb(255, 0x1A, 0x1B, 0x2E) : Microsoft.UI.Colors.White);
-            var content = new StackPanel { Spacing = 3 };
-            content.Children.Add(new TextBlock
-            {
-                Text = culture.DateTimeFormat.GetAbbreviatedDayName(date.DayOfWeek),
-                FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Foreground = ink, Opacity = 0.75,
-            });
-            content.Children.Add(new TextBlock
-            {
-                Text = date.Day.ToString(culture), FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, Foreground = ink,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-            });
+            var isToday = date == _today;
             var fraction = future ? 0 : logic.DayProgress(habits, entries, date);
-            var track = new Grid { Height = 4, Width = 28, CornerRadius = new CornerRadius(2), Margin = new Thickness(0, 3, 0, 0),
-                Background = new SolidColorBrush(selected ? Windows.UI.Color.FromArgb(40, 0, 0, 0) : Windows.UI.Color.FromArgb(56, 255, 255, 255)) };
-            track.Children.Add(new Border
+
+            var circle = new Grid { Width = 34, Height = 34, HorizontalAlignment = HorizontalAlignment.Center };
+            circle.Children.Add(new Ellipse { Fill = selected ? accent : new SolidColorBrush(Microsoft.UI.Colors.Transparent) });
+            circle.Children.Add(new TextBlock
             {
-                Width = 28 * fraction, HorizontalAlignment = HorizontalAlignment.Left, CornerRadius = new CornerRadius(2),
-                Background = new SolidColorBrush(selected ? HabitVisuals.Sunrise : Microsoft.UI.Colors.White),
+                Text = date.Day.ToString(culture),
+                FontSize = 15,
+                FontWeight = selected || isToday ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+                Foreground = selected ? new SolidColorBrush(Microsoft.UI.Colors.White) : isToday ? accent : ink,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
             });
-            content.Children.Add(track);
+            var content = new StackPanel { Spacing = 4 };
+            content.Children.Add(new TextBlock
+            {
+                Text = culture.DateTimeFormat.GetShortestDayName(date.DayOfWeek),
+                FontSize = 12,
+                Foreground = muted,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+            content.Children.Add(circle);
+            content.Children.Add(new Ellipse
+            {
+                Width = 5, Height = 5, HorizontalAlignment = HorizontalAlignment.Center,
+                Fill = fraction >= 0.999f ? accent : fraction > 0 ? muted : new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            });
 
             var button = new Button
             {
-                Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 72,
+                Content = content,
                 Style = (Style)Application.Current.Resources["SoftButtonStyle"],
-                CornerRadius = new CornerRadius(16),
-                Background = new SolidColorBrush(selected ? Microsoft.UI.Colors.White : Windows.UI.Color.FromArgb(31, 255, 255, 255)),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Padding = new Thickness(0, 8, 0, 6),
+                CornerRadius = new CornerRadius(10),
                 IsEnabled = !future,
             };
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, date.ToString("D", culture));
+            AutomationProperties.SetName(button, $"{date.ToString("dddd d MMMM", culture)}, {Math.Round(fraction * 100)}% done");
             button.Click += (_, _) => { _selected = date; Refresh(); };
-            Grid.SetColumn(button, i);
+            WeekStrip.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetColumn(button, WeekStrip.ColumnDefinitions.Count - 1);
             WeekStrip.Children.Add(button);
         }
-
-        // Arrows to step a week back and forward.
-        AddWeekArrow("", "Previous week", -7, insertFirst: true);
-        AddWeekArrow("", "Next week", 7, insertFirst: false);
+        AddArrow("", "Next week", 7, WeekStrip.ColumnDefinitions.Count);
     }
 
-    private void AddWeekArrow(string glyph, string name, int days, bool insertFirst)
+    private void AddArrow(string glyph, string name, int days, int column)
     {
         var target = _selected.AddDays(days);
         if (target > _today) target = _today;
         var button = new Button
         {
-            Content = new FontIcon { Glyph = glyph, FontSize = 12 },
-            Style = (Style)Application.Current.Resources["SoftButtonStyle"],
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
-            CornerRadius = new CornerRadius(12),
-            VerticalAlignment = VerticalAlignment.Stretch,
-            Padding = new Thickness(8, 0, 8, 0),
-            IsEnabled = target != _selected && AppServices.Logic.WeekStartOf(target) != AppServices.Logic.WeekStartOf(_selected),
+            Content = new FontIcon { Glyph = glyph, FontSize = 11 },
+            Style = (Style)Application.Current.Resources["ChromeButtonStyle"],
+            Width = 28,
+            Height = 60,
+            IsEnabled = AppServices.Logic.WeekStartOf(target) != AppServices.Logic.WeekStartOf(_selected),
         };
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, name);
+        AutomationProperties.SetName(button, name);
         ToolTipService.SetToolTip(button, name);
         button.Click += (_, _) => { _selected = target; Refresh(); };
-        if (insertFirst)
-        {
-            WeekStrip.ColumnDefinitions.Insert(0, new ColumnDefinition { Width = GridLength.Auto });
-            foreach (var child in WeekStrip.Children.OfType<FrameworkElement>()) Grid.SetColumn(child, Grid.GetColumn(child) + 1);
-            Grid.SetColumn(button, 0);
-        }
-        else
-        {
-            WeekStrip.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            Grid.SetColumn(button, WeekStrip.ColumnDefinitions.Count - 1);
-        }
+        WeekStrip.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(button, column);
         WeekStrip.Children.Add(button);
     }
 
@@ -232,23 +231,21 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
 
     private void OnNewHabit(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(EditHabitPage), 0L);
 
-    /// <summary>Indigo at the start of the day to green when it's done, fading into the page.</summary>
-    private static LinearGradientBrush HeaderBrush(float progress)
+    /// <summary>Check-off with a little pop when it completes.</summary>
+    private void OnCheck(object sender, RoutedEventArgs e)
     {
-        Windows.UI.Color Lerp(Windows.UI.Color a, Windows.UI.Color b, float t) => Windows.UI.Color.FromArgb(255,
-            (byte)(a.R + (b.R - a.R) * t), (byte)(a.G + (b.G - a.G) * t), (byte)(a.B + (b.B - a.B) * t));
-        var tint = Lerp(Windows.UI.Color.FromArgb(255, 0x2E, 0x34, 0x82), Windows.UI.Color.FromArgb(255, 0x1F, 0x7A, 0x4D), progress);
-        return new LinearGradientBrush
-        {
-            StartPoint = new Windows.Foundation.Point(0.5, 0),
-            EndPoint = new Windows.Foundation.Point(0.5, 1),
-            GradientStops =
-            {
-                new GradientStop { Color = tint, Offset = 0 },
-                new GradientStop { Color = tint, Offset = 0.55 },
-                new GradientStop { Color = Windows.UI.Color.FromArgb(0, tint.R, tint.G, tint.B), Offset = 1 },
-            },
-        };
+        if (sender is not Button { Tag: HabitRowViewModel row } button) return;
+        var completing = !row.IsDone;
+        row.ToggleCheck();
+        if (completing) Motion.Pop(button);
+    }
+
+    private void OnIncrement(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: HabitRowViewModel row } button) return;
+        var before = row.IsDone;
+        row.Increment();
+        if (!before && row.Percent >= 100 - 100.0 / Math.Max(row.Habit.EffectiveGoal, 1)) Motion.Pop((UIElement)button.Parent);
     }
 
     // ---- IHabitRowHost ----------------------------------------------------------------------
@@ -259,7 +256,7 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
         AppServices.Settings.Update(s => s with { Focus = s.Focus with { LastHabitUid = row.Habit.Uid } });
         if (focus.Current == null) focus.Start(AppServices.Settings.Current.Focus.ToConfig(), row.Id);
         else focus.SetHabit(row.Id);
-        App.Current?.Window?.Go(Controls.Destination.Focus);
+        App.Current?.Window?.Go(Destination.Focus);
     }
 
     public void OpenHabit(HabitRowViewModel row) => Frame.Navigate(typeof(HabitDetailPage), row.Id);
@@ -282,5 +279,18 @@ public sealed partial class HabitsPage : Page, IHabitRowHost, ISkyPage
     {
         if (await Dialogs.Confirm(XamlRoot, $"Delete {row.Name}?", "Its history will be deleted too. Archive it instead if you might want it back.", "Delete"))
             AppServices.Store.DeleteHabit(row.Id);
+    }
+}
+
+internal static class ThemeLookupExtensions
+{
+    /// <summary>Finds a theme resource for the element's current theme (Application.Resources ignores RequestedTheme).</summary>
+    public static object ThemeLookup(this ResourceDictionary _, string key)
+    {
+        var theme = App.Current?.Window?.Content is FrameworkElement root && root.ActualTheme == ElementTheme.Light ? "Light" : "Dark";
+        var dict = Application.Current.Resources.MergedDictionaries
+            .Select(d => d.ThemeDictionaries.TryGetValue(theme, out var t) ? t as ResourceDictionary : null)
+            .FirstOrDefault(d => d != null && d.ContainsKey(key));
+        return dict?[key] ?? Application.Current.Resources[key];
     }
 }

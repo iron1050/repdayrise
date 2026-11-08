@@ -1,15 +1,16 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Shapes;
-using RepDayrise.Controls;
 using RepDayrise.Core.Domain;
 using RepDayrise.Core.Models;
 using RepDayrise.Services;
 using Windows.System;
+using Windows.UI;
+using Colors = Microsoft.UI.Colors;
 
 namespace RepDayrise.Views;
 
@@ -21,16 +22,21 @@ public sealed partial class FocusPage : Page, ISkyPage
     private FocusSummary _summary = new(0, 0, 0, 0, 0, 0, 0);
     private IReadOnlyList<Habit> _timerHabits = [];
     private FocusRun? _run;
+    private string _shape = ""; // which controls are showing, so they only animate when that changes
 
     public FocusPage()
     {
         InitializeComponent();
-        SizeChanged += (_, _) => FitDial();
+        SizeChanged += (_, _) => FitTimer();
+        LengthPicker.SetItems(["25 min", "50 min", "90 min", "Custom"]);
+        LengthPicker.ItemInvoked += OnLength;
+
+        foreach (var el in new UIElement[] { LengthPicker, BreaksButton, SkipButton, StopButton, HabitButton }) Motion.FadeOnVisibility(el);
 
         var space = new KeyboardAccelerator { Key = VirtualKey.Space };
         space.Invoked += (_, e) =>
         {
-            if (FocusManager.GetFocusedElement(XamlRoot) is TextBox or NumberBox) return;
+            if (FocusManager.GetFocusedElement(XamlRoot) is TextBox or NumberBox or Button) return;
             OnPrimary(this, new RoutedEventArgs());
             e.Handled = true;
         };
@@ -43,7 +49,7 @@ public sealed partial class FocusPage : Page, ISkyPage
         AppServices.DataChanged += OnDataChanged;
         AppServices.SettingsChanged += OnSettingsChanged;
         QuietHours.Changed += OnQuietChanged;
-        MainWindow.FocusHeartbeat += OnHeartbeat;
+        MainWindow.FocusHeartbeat += Render;
         LoadHabits();
         LoadSummary();
         ShowSettings();
@@ -55,7 +61,7 @@ public sealed partial class FocusPage : Page, ISkyPage
         AppServices.DataChanged -= OnDataChanged;
         AppServices.SettingsChanged -= OnSettingsChanged;
         QuietHours.Changed -= OnQuietChanged;
-        MainWindow.FocusHeartbeat -= OnHeartbeat;
+        MainWindow.FocusHeartbeat -= Render;
     }
 
     private void OnDataChanged()
@@ -74,18 +80,12 @@ public sealed partial class FocusPage : Page, ISkyPage
 
     private void OnQuietChanged() => DispatcherQueue.TryEnqueue(() => Render(_run));
 
-    private void OnHeartbeat(FocusRun? run) => Render(run);
-
     // ---- Data ---------------------------------------------------------------------------------
 
     private void LoadHabits()
     {
         _timerHabits = AppServices.Store.GetAllHabits().Where(h => h.Type == HabitType.TIMER && !h.Archived).ToList();
         HabitMenu.Items.Clear();
-        var none = new MenuFlyoutItem { Text = "No habit" };
-        none.Click += (_, _) => PickHabit(null);
-        HabitMenu.Items.Add(none);
-        if (_timerHabits.Count > 0) HabitMenu.Items.Add(new MenuFlyoutSeparator());
         foreach (var h in _timerHabits)
         {
             var item = new MenuFlyoutItem
@@ -97,7 +97,10 @@ public sealed partial class FocusPage : Page, ISkyPage
             item.Click += (_, _) => PickHabit(habit);
             HabitMenu.Items.Add(item);
         }
-        HabitMenu.Items.Add(new MenuFlyoutSeparator());
+        if (_timerHabits.Count > 0) HabitMenu.Items.Add(new MenuFlyoutSeparator());
+        var none = new MenuFlyoutItem { Text = "Don't count toward a habit" };
+        none.Click += (_, _) => PickHabit(null);
+        HabitMenu.Items.Add(none);
         var create = new MenuFlyoutItem { Text = "New timer habit…", Icon = new FontIcon { Glyph = "" } };
         create.Click += (_, _) => App.Current?.Window?.Navigate(typeof(EditHabitPage), HabitType.TIMER);
         HabitMenu.Items.Add(create);
@@ -129,27 +132,24 @@ public sealed partial class FocusPage : Page, ISkyPage
     private void ShowSettings()
     {
         var f = AppServices.Settings.Current.Focus;
-        var preset = Presets.Contains(f.FocusMinutes);
-        Chip25.IsChecked = f.FocusMinutes == 25;
-        Chip50.IsChecked = f.FocusMinutes == 50;
-        Chip90.IsChecked = f.FocusMinutes == 90;
-        ChipCustom.IsChecked = !preset;
-        ChipCustom.Content = preset ? "Custom" : $"{f.FocusMinutes} min";
-        BreaksChip.IsChecked = f.BreaksEnabled;
-        BreaksLabel.Text = f.BreaksEnabled ? $"Breaks · {f.ShortBreakMinutes}/{f.LongBreakMinutes}" : "No breaks";
+        var preset = Array.IndexOf(Presets, f.FocusMinutes);
+        LengthPicker.SetLabel(3, preset >= 0 ? "Custom" : $"{f.FocusMinutes} min");
+        LengthPicker.Select(preset >= 0 ? preset : 3);
+        BreaksLabel.Text = f.BreaksEnabled ? "Breaks on" : "Breaks off";
+        AutomationProperties.SetName(BreaksButton, f.BreaksEnabled ? "Breaks on. Turn off breaks" : "Breaks off. Turn on breaks");
     }
 
-    private void OnLengthChip(object sender, RoutedEventArgs e)
+    private void OnLength(int index)
     {
-        var minutes = int.Parse((string)((FrameworkElement)sender).Tag);
-        AppServices.Settings.Update(s => s with { Focus = s.Focus with { FocusMinutes = minutes } });
-    }
-
-    private void OnCustomChip(object sender, RoutedEventArgs e)
-    {
-        ShowSettings(); // keep the chip states honest until a length is chosen
+        if (index < Presets.Length)
+        {
+            var minutes = Presets[index];
+            AppServices.Settings.Update(s => s with { Focus = s.Focus with { FocusMinutes = minutes } });
+            return;
+        }
+        var flyout = (Flyout)Resources["CustomFlyout"];
         CustomMinutes.Value = AppServices.Settings.Current.Focus.CustomMinutes;
-        FlyoutBase.ShowAttachedFlyout(ChipCustom);
+        flyout.ShowAt(LengthPicker.ButtonAt(3));
     }
 
     private void OnCustomApply(object sender, RoutedEventArgs e)
@@ -157,26 +157,19 @@ public sealed partial class FocusPage : Page, ISkyPage
         if (double.IsNaN(CustomMinutes.Value)) return;
         var minutes = (int)Math.Clamp(Math.Round(CustomMinutes.Value), 1, 600);
         AppServices.Settings.Update(s => s with { Focus = s.Focus with { FocusMinutes = minutes, CustomMinutes = minutes } });
-        CustomFlyout.Hide();
+        ((Flyout)Resources["CustomFlyout"]).Hide();
     }
 
-    private void OnBreaksChip(object sender, RoutedEventArgs e) =>
-        AppServices.Settings.Update(s => s with { Focus = s.Focus with { BreaksEnabled = BreaksChip.IsChecked == true } });
+    private void OnBreaks(object sender, RoutedEventArgs e) =>
+        AppServices.Settings.Update(s => s with { Focus = s.Focus with { BreaksEnabled = !s.Focus.BreaksEnabled } });
 
     // ---- Actions ------------------------------------------------------------------------------
 
     private void OnPrimary(object sender, RoutedEventArgs e)
     {
         var focus = AppServices.Focus;
-        if (focus.Current == null)
-        {
-            var prefs = AppServices.Settings.Current.Focus;
-            focus.Start(prefs.ToConfig(), SelectedHabit()?.Id);
-        }
-        else
-        {
-            focus.Toggle();
-        }
+        if (focus.Current == null) focus.Start(AppServices.Settings.Current.Focus.ToConfig(), SelectedHabit()?.Id);
+        else focus.Toggle();
         Render(focus.Current);
     }
 
@@ -184,7 +177,7 @@ public sealed partial class FocusPage : Page, ISkyPage
 
     private void OnStop(object sender, RoutedEventArgs e) => Render(AppServices.Focus.Stop());
 
-    private async void OnQuietChip(object sender, RoutedEventArgs e) => await QuietHours.OpenSystemSettings();
+    private async void OnQuiet(object sender, RoutedEventArgs e) => await QuietHours.OpenSystemSettings();
 
     // ---- Rendering ----------------------------------------------------------------------------
 
@@ -193,125 +186,120 @@ public sealed partial class FocusPage : Page, ISkyPage
         _run = run;
         var now = AppServices.Focus.Now;
         var prefs = AppServices.Settings.Current.Focus;
-        var today = EpochDay.Today();
-
-        DayRelative.Text = "Today";
-        DayDate.Text = ", " + DateTime.Now.ToString("d MMM");
-
         var idle = run == null;
-        LengthChips.Visibility = idle ? Visibility.Visible : Visibility.Collapsed;
-        BreaksChip.Visibility = idle ? Visibility.Visible : Visibility.Collapsed;
-        StopButton.Visibility = idle ? Visibility.Collapsed : Visibility.Visible;
-        SkipButton.Visibility = idle ? Visibility.Collapsed : Visibility.Visible;
-
         var habit = SelectedHabit();
-        HabitLabel.Text = habit?.Name ?? "No habit";
-        HabitSwatch.Background = habit != null ? HabitVisuals.BrushOf(habit.ColorIndex) : new SolidColorBrush(Windows.UI.Color.FromArgb(102, 255, 255, 255));
-        HabitButton.Visibility = idle || run!.Phase == FocusPhase.FOCUS || run.AwaitingStart ? Visibility.Visible : Visibility.Collapsed;
 
-        // Live focus counts toward today's total as it happens.
+        // Which controls show. Only touch Visibility when this changes, so the fades play once.
+        var shape = idle ? "idle" : run!.AwaitingStart ? "waiting" : run.IsBreak ? "break" : "focus";
+        if (shape != _shape)
+        {
+            _shape = shape;
+            LengthPicker.Visibility = idle ? Visibility.Visible : Visibility.Collapsed;
+            BreaksButton.Visibility = idle ? Visibility.Visible : Visibility.Collapsed;
+            SkipButton.Visibility = idle ? Visibility.Collapsed : Visibility.Visible;
+            StopButton.Visibility = idle ? Visibility.Collapsed : Visibility.Visible;
+            HabitButton.Visibility = idle || run!.Phase == FocusPhase.FOCUS ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        HabitLabel.Text = habit?.Name ?? (idle ? "Choose a habit" : "Not counting toward a habit");
+        HabitDot.Fill = habit != null ? HabitVisuals.BrushOf(habit.ColorIndex) : new SolidColorBrush(Color.FromArgb(120, 255, 255, 255));
+        AutomationProperties.SetName(HabitButton, habit != null ? $"Counting toward {habit.Name}. Change habit" : "Choose a habit to count toward");
+
+        // Today, with the session in progress counted live.
         var live = run is { Phase: FocusPhase.FOCUS, AwaitingStart: false } ? run.ElapsedMs(now) / 60000.0 : 0;
         var todayMinutes = _summary.TodayMinutes + live;
-        TodayMinutes.Text = Format.Duration(todayMinutes);
+        TodayMinutes.Text = $"{TimeText.Short(todayMinutes)} today";
         var streak = _summary.CurrentStreak + (_summary.TodayMinutes < prefs.DailyGoalMinutes && todayMinutes >= prefs.DailyGoalMinutes ? 1 : 0);
-        StreakText.Text = streak == 1 ? "1 day" : $"{streak} days";
-        RenderDots(run, prefs.LongBreakEvery);
+        StreakText.Text = streak switch { 0 => "", 1 => "1-day streak", _ => $"{streak}-day streak" };
+        RenderDots(run, prefs);
 
+        string primary;
         if (idle)
         {
-            PhaseLabel.Text = "READY TO FOCUS";
-            Countdown.Text = FloatingBar.FormatClock(prefs.FocusMinutes * 60_000L);
-            SubLabel.Text = habit != null ? $"toward {habit.Name}" : $"{Minutes(prefs.FocusMinutes * 60_000L)} of focus";
-            Dial.Value = 0;
-            PrimaryLabel.Text = "Start focus";
-            PrimaryIcon.Glyph = "";
+            Countdown.Text = TimeText.Clock(prefs.FocusMinutes * 60_000L);
+            Status.Text = TimeText.Minutes(prefs.FocusMinutes) + (prefs.BreaksEnabled ? $", then a {prefs.ShortBreakMinutes}-minute break" : "");
+            primary = "Start focus";
             Sky.Progress = Math.Clamp(todayMinutes / Math.Max(prefs.DailyGoalMinutes, 1), 0, 1);
         }
         else
         {
             var r = run!;
-            var fraction = r.AwaitingStart ? 0 : r.Fraction(now);
             var every = Math.Max(r.Config.LongBreakEvery, 1);
             var nth = r.CompletedFocusCount % every + 1;
-            PhaseLabel.Text = (r.Phase, r.AwaitingStart) switch
+            Countdown.Text = TimeText.Clock(r.AwaitingStart ? r.PhaseDurationMs : r.RemainingMs(now));
+            Status.Text = (r.Phase, r.AwaitingStart, r.Running) switch
             {
-                (FocusPhase.FOCUS, true) => "UP NEXT · FOCUS",
-                (FocusPhase.FOCUS, _) when r.Bonus => "FOCUS · BONUS",
-                (FocusPhase.FOCUS, _) when r.Config.BreaksEnabled => $"FOCUS · {nth} OF {every}",
-                (FocusPhase.FOCUS, _) => "FOCUS",
-                (FocusPhase.SHORT_BREAK, true) => "UP NEXT · SHORT BREAK",
-                (FocusPhase.LONG_BREAK, true) => "UP NEXT · LONG BREAK",
-                (FocusPhase.SHORT_BREAK, _) => "SHORT BREAK",
-                _ => "LONG BREAK",
+                (FocusPhase.FOCUS, true, _) => "Ready for the next session",
+                (FocusPhase.SHORT_BREAK, true, _) => "Session done. Time for a short break",
+                (FocusPhase.LONG_BREAK, true, _) => "Nice run. Time for a long break",
+                (_, _, false) => "Paused",
+                (FocusPhase.FOCUS, _, _) when r.Bonus => "A few more minutes",
+                (FocusPhase.FOCUS, _, _) when r.Config.BreaksEnabled => $"Session {nth} of {every}",
+                (FocusPhase.FOCUS, _, _) => "Focusing",
+                (FocusPhase.SHORT_BREAK, _, _) => "Short break. Look away from the screen",
+                _ => "Long break. Stretch, get some water",
             };
-            if (!r.Running && !r.AwaitingStart) PhaseLabel.Text = "PAUSED · " + PhaseLabel.Text;
-            Countdown.Text = FloatingBar.FormatClock(r.AwaitingStart ? r.PhaseDurationMs : r.RemainingMs(now));
-            SubLabel.Text = r.IsBreak
-                ? "Stand up, stretch, look away from the screen"
-                : habit != null ? $"toward {habit.Name}" : $"of {Minutes(r.PhaseDurationMs)}";
-            Dial.Value = fraction;
-            Dial.Opacity = r.Running || r.AwaitingStart ? 1 : 0.6;
-            PrimaryLabel.Text = r.AwaitingStart ? (r.IsBreak ? "Start break" : "Start focus") : r.Running ? "Pause" : "Resume";
-            PrimaryIcon.Glyph = r.Running ? "" : "";
-            SkipButton.SetValue(ToolTipService.ToolTipProperty, r.IsBreak ? "Skip the break" : "Skip to the break");
-            // The sun climbs through a focus phase; a break is full daylight.
-            Sky.Progress = r.IsBreak ? 1 : fraction;
+            primary = r.AwaitingStart ? (r.IsBreak ? "Start break" : "Start focus") : r.Running ? "Pause" : "Resume";
+            SkipLabel.Text = r.IsBreak ? "Skip break" : r.Config.BreaksEnabled ? "Skip to break" : "Finish now";
+            // The sun climbs through a focus session; a break is full daylight.
+            Sky.Progress = r.IsBreak ? 1 : r.AwaitingStart ? 0 : r.Fraction(now);
         }
-        Sky.Date = today;
-        // Buttons whose content is a panel need explicit names for screen readers.
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(PrimaryButton, PrimaryLabel.Text);
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(HabitButton, $"Habit: {HabitLabel.Text}");
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(QuietChip, QuietText.Text);
+        Motion.SwapText(PrimaryLabel, primary);
+        AutomationProperties.SetName(PrimaryButton, primary);
+        AutomationProperties.SetName(Countdown, $"{TimeText.Spoken(TimeSpanMs(Countdown.Text))} {(idle ? "session" : "left")}");
+        Sky.Date = EpochDay.Today();
 
         RenderQuiet(run);
     }
 
-    private void RenderDots(FocusRun? run, int every)
+    private static long TimeSpanMs(string clock)
     {
-        every = Math.Clamp(run?.Config.LongBreakEvery ?? every, 1, 8);
-        var showDots = (run?.Config.BreaksEnabled ?? AppServices.Settings.Current.Focus.BreaksEnabled);
-        CycleDots.Visibility = showDots ? Visibility.Visible : Visibility.Collapsed;
+        var parts = clock.Split(':').Select(long.Parse).ToArray();
+        return parts.Length == 3 ? ((parts[0] * 60 + parts[1]) * 60 + parts[2]) * 1000 : (parts[0] * 60 + parts[1]) * 1000;
+    }
+
+    /// <summary>Sessions until the long break, as dots.</summary>
+    private void RenderDots(FocusRun? run, Core.Data.FocusPreferences prefs)
+    {
+        var every = Math.Clamp(run?.Config.LongBreakEvery ?? prefs.LongBreakEvery, 1, 8);
+        var show = run?.Config.BreaksEnabled ?? prefs.BreaksEnabled;
+        CycleDots.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         var count = run?.CompletedFocusCount ?? 0;
         var filled = count > 0 && count % every == 0 && run?.Phase == FocusPhase.LONG_BREAK ? every : count % every;
         if (CycleDots.Children.Count != every)
         {
             CycleDots.Children.Clear();
-            for (var i = 0; i < every; i++) CycleDots.Children.Add(new Ellipse { Width = 8, Height = 8 });
+            for (var i = 0; i < every; i++) CycleDots.Children.Add(new Ellipse { Width = 7, Height = 7 });
         }
         for (var i = 0; i < every; i++)
-            ((Ellipse)CycleDots.Children[i]).Fill = new SolidColorBrush(i < filled
-                ? Windows.UI.Color.FromArgb(255, 0xFF, 0xB0, 0x67)
-                : Windows.UI.Color.FromArgb(70, 255, 255, 255));
+        {
+            var dot = (Ellipse)CycleDots.Children[i];
+            var on = i < filled;
+            var wasOn = dot.Tag is true;
+            dot.Fill = new SolidColorBrush(on ? Colors.White : Color.FromArgb(80, 255, 255, 255));
+            dot.Tag = on;
+            if (on && !wasOn && run != null) Motion.Pop(dot);
+        }
+        AutomationProperties.SetName(CycleDots, $"{filled} of {every} sessions before the long break");
     }
 
     private void RenderQuiet(FocusRun? run)
     {
-        if (QuietHours.SystemFocusActive)
-        {
-            QuietIcon.Glyph = "";
-            QuietText.Text = "Do not disturb is on";
-            QuietChip.Opacity = 1;
-            return;
-        }
-        QuietIcon.Glyph = "";
-        QuietText.Text = run is { Phase: FocusPhase.FOCUS, Running: true } ? "Silence notifications" : "Do not disturb";
-        QuietChip.Opacity = run is { Phase: FocusPhase.FOCUS, Running: true } ? 1 : 0.75;
-        ToolTipService.SetToolTip(QuietChip, AppServices.Settings.Current.Focus.QuietReminders
-            ? "RepDayrise holds its own reminders while you focus. Click to turn on Windows Focus for everything else."
-            : "Open Windows Focus settings to silence notifications");
+        var active = QuietHours.SystemFocusActive;
+        QuietIcon.Glyph = active ? "" : "";
+        QuietText.Text = active ? "Do not disturb is on" : "Do not disturb";
+        QuietButton.Opacity = active || run is { Phase: FocusPhase.FOCUS, Running: true } ? 1 : 0.7;
+        ToolTipService.SetToolTip(QuietButton, active
+            ? "Windows Focus is silencing notifications"
+            : "Open Windows Focus to silence other apps. RepDayrise already holds its own reminders while you focus.");
+        AutomationProperties.SetName(QuietButton, active ? "Do not disturb is on" : "Turn on Do not disturb in Windows settings");
     }
 
-    private static string Minutes(long ms)
+    private void FitTimer()
     {
-        var m = (int)Math.Round(ms / 60000.0);
-        return m == 1 ? "1 minute" : $"{m} minutes";
-    }
-
-    private void FitDial()
-    {
-        // Leave room for the label, chips, buttons and the floating bar.
-        var size = Math.Clamp(Math.Min(ActualWidth * 0.6, ActualHeight - 420), 170, 340);
-        DialHost.Width = DialHost.Height = size;
-        Countdown.FontSize = size * 0.25;
+        // Big enough to read across the room, small enough to leave the sky room to breathe.
+        var size = Math.Clamp(Math.Min(ActualWidth * 0.15, (ActualHeight - 360) * 0.6), 72, 156);
+        Countdown.FontSize = size;
+        Countdown.LineHeight = size;
     }
 }

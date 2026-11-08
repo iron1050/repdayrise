@@ -4,133 +4,82 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:RepDayrise.Controls"
     xmlns:sky="using:RepDayrise.Controls.Sky"
-    Background="#05060F">
+    Background="#05060F"
+    RequestedTheme="Dark">
 
     <!--
-        Focus home. The whole window is the sky: during a focus phase the sun rises from the horizon to noon; on a
-        break it's full daylight; when idle it shows how far today's focus goal has come.
+        Focus. The window is the sky; the sun climbs through each focus session, so the sky is the progress.
+        One large, light timer, one white action, and everything else as quiet text.
     -->
+    <Page.Resources>
+        <!-- Custom length -->
+        <Flyout x:Key="CustomFlyout" Placement="Bottom">
+            <StackPanel Spacing="12" Width="220">
+                <NumberBox x:Name="CustomMinutes" Header="Minutes of focus" Minimum="1" Maximum="600" SmallChange="5" LargeChange="15"
+                           SpinButtonPlacementMode="Inline" />
+                <Button Content="Use this length" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch" Click="OnCustomApply" />
+            </StackPanel>
+        </Flyout>
+    </Page.Resources>
+
     <Grid x:Name="Root">
         <sky:SkyCanvas x:Name="Sky" HillFraction="0.2" />
 
-        <!-- Date, centred in the title bar area -->
-        <TextBlock x:Name="DayTitle" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"
-                   Style="{StaticResource TitleLargeStyle}" Foreground="White" IsHitTestVisible="False">
-            <Run x:Name="DayRelative" Text="Today" /><Run x:Name="DayDate" Foreground="#9EFFFFFF" />
-        </TextBlock>
-
-        <!-- Do Not Disturb status / shortcut -->
-        <Button x:Name="QuietChip" Style="{StaticResource GlassPillButtonStyle}" Height="36" FontSize="13" Padding="14,0"
-                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Click="OnQuietChip">
+        <!-- Do not disturb: status and shortcut -->
+        <Button x:Name="QuietButton" Style="{StaticResource SkyTextButtonStyle}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,58,20,0" Click="OnQuiet">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <FontIcon x:Name="QuietIcon" Glyph="&#xE708;" FontSize="14" />
-                <TextBlock x:Name="QuietText" Text="Silence notifications" VerticalAlignment="Center" />
+                <TextBlock x:Name="QuietText" Text="Do not disturb" VerticalAlignment="Center" />
             </StackPanel>
         </Button>
 
-        <!-- The timer -->
-        <StackPanel x:Name="Centre" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="18" Margin="0,0,0,90">
-            <TextBlock x:Name="PhaseLabel" Text="READY TO FOCUS" HorizontalAlignment="Center"
-                       Style="{StaticResource LabelMediumStyle}" FontSize="13" Foreground="#C8FFFFFF" />
-
-            <Grid x:Name="DialHost" Width="300" Height="300" HorizontalAlignment="Center">
-                <!-- A soft dark halo keeps the time readable when the sun or a noon sky sits behind it. -->
-                <Ellipse Margin="-40" IsHitTestVisible="False">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Offset="0" Color="#66050611" />
-                            <GradientStop Offset="0.55" Color="#40050611" />
-                            <GradientStop Offset="1" Color="#00050611" />
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                </Ellipse>
-                <controls:FocusDial x:Name="Dial" />
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="2">
-                    <TextBlock x:Name="Countdown" Text="25:00" HorizontalAlignment="Center" Foreground="White"
-                               FontFamily="{StaticResource ManropeFontFamily}" FontWeight="ExtraBold" FontSize="76"
-                               CharacterSpacing="-40" />
-                    <TextBlock x:Name="SubLabel" Text="minutes of focus" HorizontalAlignment="Center" Foreground="#B3FFFFFF"
-                               Style="{StaticResource BodyMediumStyle}" TextAlignment="Center" MaxWidth="220" />
+        <StackPanel x:Name="Centre" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,24,0,72">
+            <!-- What this session counts toward -->
+            <Button x:Name="HabitButton" Style="{StaticResource SkyTextButtonStyle}" HorizontalAlignment="Center" FontSize="15">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Ellipse x:Name="HabitDot" Width="8" Height="8" VerticalAlignment="Center" />
+                    <TextBlock x:Name="HabitLabel" Text="Choose a habit" VerticalAlignment="Center" MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                    <FontIcon Glyph="&#xE70D;" FontSize="10" Margin="0,2,0,0" />
                 </StackPanel>
-            </Grid>
+                <Button.Flyout>
+                    <MenuFlyout x:Name="HabitMenu" Placement="Bottom" />
+                </Button.Flyout>
+            </Button>
 
-            <!-- Length chips (only before a run starts) -->
-            <StackPanel x:Name="LengthChips" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                <ToggleButton x:Name="Chip25" Style="{StaticResource SkyChipStyle}" Content="25 min" Tag="25" Click="OnLengthChip" />
-                <ToggleButton x:Name="Chip50" Style="{StaticResource SkyChipStyle}" Content="50 min" Tag="50" Click="OnLengthChip" />
-                <ToggleButton x:Name="Chip90" Style="{StaticResource SkyChipStyle}" Content="90 min" Tag="90" Click="OnLengthChip" />
-                <ToggleButton x:Name="ChipCustom" Style="{StaticResource SkyChipStyle}" Content="Custom" Click="OnCustomChip">
-                    <FlyoutBase.AttachedFlyout>
-                        <Flyout x:Name="CustomFlyout" Placement="Bottom">
-                            <StackPanel Spacing="12" Width="220">
-                                <TextBlock Text="Focus length" Style="{StaticResource TitleSmallStyle}" />
-                                <NumberBox x:Name="CustomMinutes" Minimum="1" Maximum="600" SmallChange="5" LargeChange="15"
-                                           SpinButtonPlacementMode="Inline" Header="Minutes" />
-                                <Button Content="Use this length" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch" Click="OnCustomApply" />
-                            </StackPanel>
-                        </Flyout>
-                    </FlyoutBase.AttachedFlyout>
-                </ToggleButton>
-            </StackPanel>
+            <TextBlock x:Name="Countdown" Text="25:00" Style="{StaticResource TimerStyle}" Foreground="{StaticResource OnSkyBrush}"
+                       HorizontalAlignment="Center" Margin="0,6,0,0" AutomationProperties.LiveSetting="Off" />
 
-            <!-- Habit and breaks -->
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                <Button x:Name="HabitButton" Style="{StaticResource GlassPillButtonStyle}" Height="40" FontSize="14" Padding="14,0">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border x:Name="HabitSwatch" Width="10" Height="10" CornerRadius="5" Background="#66FFFFFF" VerticalAlignment="Center" />
-                        <TextBlock x:Name="HabitLabel" Text="No habit" VerticalAlignment="Center" MaxWidth="200" TextTrimming="CharacterEllipsis" />
-                        <FontIcon Glyph="&#xE70D;" FontSize="10" />
-                    </StackPanel>
-                    <Button.Flyout>
-                        <MenuFlyout x:Name="HabitMenu" Placement="Bottom" />
-                    </Button.Flyout>
-                </Button>
-                <ToggleButton x:Name="BreaksChip" Style="{StaticResource SkyChipStyle}" Height="40" CornerRadius="20" Click="OnBreaksChip"
-                              AutomationProperties.Name="Breaks"
-                              ToolTipService.ToolTip="Take short breaks between focus, and a long one every few">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xEC32;" FontSize="14" />
-                        <TextBlock x:Name="BreaksLabel" Text="Breaks" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ToggleButton>
-            </StackPanel>
+            <TextBlock x:Name="Status" Text="25 minutes" Style="{StaticResource BodyLargeStyle}" Foreground="{StaticResource OnSkySecondaryBrush}"
+                       HorizontalAlignment="Center" TextAlignment="Center" Margin="0,4,0,0" />
 
-            <!-- Actions -->
-            <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center" Margin="0,6,0,0">
-                <Button x:Name="StopButton" Style="{StaticResource GlassPillButtonStyle}" Width="56" Height="56" CornerRadius="28" Padding="0"
-                        Click="OnStop" ToolTipService.ToolTip="Stop" AutomationProperties.Name="Stop">
-                    <FontIcon Glyph="&#xE71A;" FontSize="18" />
+            <controls:SkySegmented x:Name="LengthPicker" Margin="0,30,0,0" />
+
+            <Button x:Name="PrimaryButton" Style="{StaticResource SkyPrimaryButtonStyle}" HorizontalAlignment="Center" Margin="0,30,0,0"
+                    Click="OnPrimary" AutomationProperties.Name="Start focus">
+                <TextBlock x:Name="PrimaryLabel" Text="Start focus" />
+            </Button>
+
+            <StackPanel x:Name="Secondary" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4" Margin="0,12,0,0">
+                <Button x:Name="BreaksButton" Style="{StaticResource SkyTextButtonStyle}" Click="OnBreaks"
+                        ToolTipService.ToolTip="Short breaks between sessions, and a longer one every few">
+                    <TextBlock x:Name="BreaksLabel" Text="Breaks on" />
                 </Button>
-                <Button x:Name="PrimaryButton" Style="{StaticResource SunrisePillButtonStyle}" Click="OnPrimary">
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <FontIcon x:Name="PrimaryIcon" Glyph="&#xE768;" FontSize="16" />
-                        <TextBlock x:Name="PrimaryLabel" Text="Start focus" VerticalAlignment="Center" />
-                    </StackPanel>
+                <Button x:Name="SkipButton" Style="{StaticResource SkyTextButtonStyle}" Click="OnSkip">
+                    <TextBlock x:Name="SkipLabel" Text="Skip to break" />
                 </Button>
-                <Button x:Name="SkipButton" Style="{StaticResource GlassPillButtonStyle}" Width="56" Height="56" CornerRadius="28" Padding="0"
-                        Click="OnSkip" ToolTipService.ToolTip="Skip to the next phase" AutomationProperties.Name="Skip">
-                    <FontIcon Glyph="&#xE893;" FontSize="18" />
-                </Button>
+                <Button x:Name="StopButton" Style="{StaticResource SkyTextButtonStyle}" Click="OnStop" Content="End session" />
             </StackPanel>
         </StackPanel>
 
-        <!-- Today, above the floating bar -->
-        <Border x:Name="TodayStrip" Style="{StaticResource SkyGlassStyle}" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                Margin="0,0,0,92" Padding="18,10">
-            <StackPanel Orientation="Horizontal" Spacing="16">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="Today" Foreground="#B3FFFFFF" Style="{StaticResource BodyMediumStyle}" VerticalAlignment="Center" />
-                    <TextBlock x:Name="TodayMinutes" Text="0m" Foreground="White" Style="{StaticResource TitleSmallStyle}" VerticalAlignment="Center" />
-                </StackPanel>
-                <Rectangle Width="1" Fill="#33FFFFFF" />
-                <StackPanel x:Name="CycleDots" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                            ToolTipService.ToolTip="Focus sessions until the long break" />
-                <Rectangle Width="1" Fill="#33FFFFFF" />
-                <StackPanel Orientation="Horizontal" Spacing="6" ToolTipService.ToolTip="Days in a row you met your daily focus goal">
-                    <TextBlock Text="🔥" FontSize="13" VerticalAlignment="Center" />
-                    <TextBlock x:Name="StreakText" Text="0 days" Foreground="White" Style="{StaticResource TitleSmallStyle}" VerticalAlignment="Center" />
-                </StackPanel>
-            </StackPanel>
-        </Border>
+        <!-- Today, quietly, bottom left -->
+        <StackPanel x:Name="TodayRow" Orientation="Horizontal" Spacing="28" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                    Margin="28,0,28,24">
+            <TextBlock x:Name="TodayMinutes" Text="0 min today" Style="{StaticResource BodyMediumStyle}"
+                       Foreground="{StaticResource OnSkySecondaryBrush}" VerticalAlignment="Center" />
+            <StackPanel x:Name="CycleDots" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" />
+            <TextBlock x:Name="StreakText" Style="{StaticResource BodyMediumStyle}"
+                       Foreground="{StaticResource OnSkySecondaryBrush}" VerticalAlignment="Center" />
+        </StackPanel>
     </Grid>
 </Page>

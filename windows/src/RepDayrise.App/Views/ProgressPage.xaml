@@ -7,203 +7,129 @@
     xmlns:views="using:RepDayrise.Views"
     Background="{ThemeResource AppBackgroundBrush}">
 
-    <!--
-        Port of the Android ProgressView (HistoryScreen.kt): a tall sky hero for the selected day, then an
-        overlapping panel with the week, dashboard tiles, focus stats and the year.
-    -->
-    <ScrollViewer x:Name="Scroller">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="440" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+    <!-- How you're doing: today's sky, four numbers that matter, then focus and habits over time. -->
+    <ScrollViewer>
+        <controls:ViewportPanel>
+            <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Padding="{StaticResource PagePadding}">
+                <TextBlock Text="Progress" Style="{StaticResource HeadlineLargeStyle}" />
+                <TextBlock x:Name="DateText" Style="{StaticResource BodyMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
 
-            <!-- Hero -->
-            <Grid Grid.Row="0" Margin="0,0,0,-32">
-                <sky:SkyCanvas x:Name="Sky" HillFraction="0.16" />
-                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"
-                           Style="{StaticResource TitleLargeStyle}" Foreground="White" IsHitTestVisible="False">
-                    <Run x:Name="DayRelative" Text="Today" /><Run x:Name="DayDate" Foreground="#9EFFFFFF" />
-                </TextBlock>
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14" Margin="0,0,0,40">
-                    <TextBlock x:Name="SkyStatus" Text="Rest day" HorizontalAlignment="Center" Foreground="White"
-                               Style="{StaticResource HeadlineLargeStyle}" />
-                    <!-- ProgressPill: done | percent | to go -->
-                    <Border Style="{StaticResource SkyGlassStyle}" CornerRadius="30" Padding="22,8" HorizontalAlignment="Center">
-                        <Grid ColumnSpacing="18">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock x:Name="DoneCount" Text="0" Foreground="White" Style="{StaticResource TitleLargeStyle}" HorizontalAlignment="Center" />
-                                <TextBlock Text="done" Foreground="#B3FFFFFF" Style="{StaticResource BodySmallStyle}" HorizontalAlignment="Center" />
-                            </StackPanel>
-                            <Rectangle Grid.Column="1" Width="1" Fill="#33FFFFFF" />
-                            <TextBlock Grid.Column="2" x:Name="Percent" Text="0%" Foreground="White" VerticalAlignment="Center"
-                                       Style="{StaticResource DisplayMediumStyle}" />
-                            <Rectangle Grid.Column="3" Width="1" Fill="#33FFFFFF" />
-                            <StackPanel Grid.Column="4" VerticalAlignment="Center">
-                                <TextBlock x:Name="LeftCount" Text="0" Foreground="White" Style="{StaticResource TitleLargeStyle}" HorizontalAlignment="Center" />
-                                <TextBlock Text="to go" Foreground="#B3FFFFFF" Style="{StaticResource BodySmallStyle}" HorizontalAlignment="Center" />
-                            </StackPanel>
+                <!-- Today's sky, as a widget -->
+                <Grid Height="220" Margin="0,22,0,0" CornerRadius="12">
+                    <sky:SkyCanvas x:Name="Sky" HillFraction="0.2" Scrim="False" ClipRadius="12" />
+                    <StackPanel VerticalAlignment="Bottom" Margin="22,0,22,18" Spacing="2">
+                        <TextBlock x:Name="SkyHeadline" Foreground="White" Style="{StaticResource HeadlineMediumStyle}" />
+                        <TextBlock x:Name="SkyDetail" Foreground="{StaticResource OnSkySecondaryBrush}" Style="{StaticResource BodyMediumStyle}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Four numbers -->
+                <Border Style="{StaticResource GroupedListStyle}" Margin="0,16,0,0">
+                    <Grid x:Name="Numbers">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Padding="18,14" Spacing="2">
+                            <TextBlock Text="Focus today" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                            <TextBlock x:Name="FocusToday" Style="{StaticResource HeadlineSmallStyle}" />
+                        </StackPanel>
+                        <Rectangle Grid.Column="1" Width="1" Margin="0,14" Fill="{ThemeResource DividerBrush}" />
+                        <StackPanel Grid.Column="2" Padding="18,14" Spacing="2">
+                            <TextBlock Text="This week" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                            <TextBlock x:Name="FocusWeek" Style="{StaticResource HeadlineSmallStyle}" />
+                        </StackPanel>
+                        <Rectangle Grid.Column="3" Width="1" Margin="0,14" Fill="{ThemeResource DividerBrush}" />
+                        <StackPanel Grid.Column="4" Padding="18,14" Spacing="2">
+                            <TextBlock Text="Focus streak" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                            <TextBlock x:Name="FocusStreak" Style="{StaticResource HeadlineSmallStyle}" />
+                        </StackPanel>
+                        <Rectangle Grid.Column="5" Width="1" Margin="0,14" Fill="{ThemeResource DividerBrush}" />
+                        <StackPanel Grid.Column="6" Padding="18,14" Spacing="2">
+                            <TextBlock Text="Habits this month" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                            <TextBlock x:Name="MonthPercent" Style="{StaticResource HeadlineSmallStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Focus -->
+                <Grid Margin="4,32,0,8">
+                    <TextBlock Text="Focus" Style="{StaticResource TitleMediumStyle}" VerticalAlignment="Center" />
+                    <HyperlinkButton Content="All sessions" HorizontalAlignment="Right" Padding="6,2" Click="OnSessionHistory" />
+                </Grid>
+                <Border Style="{StaticResource DayriseCardStyle}" Padding="20,18">
+                    <StackPanel Spacing="18">
+                        <Grid>
+                            <TextBlock Text="Last two weeks" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                            <TextBlock x:Name="FocusTotal" HorizontalAlignment="Right" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
                         </Grid>
-                    </Border>
-                </StackPanel>
-            </Grid>
+                        <controls:BarChart x:Name="FocusBars" BarAreaHeight="110" />
+                        <Rectangle Height="1" Fill="{ThemeResource DividerBrush}" />
+                        <Grid>
+                            <TextBlock Text="This year" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                            <TextBlock x:Name="FocusGoalText" HorizontalAlignment="Right" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                        </Grid>
+                        <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled">
+                            <controls:ContributionGraph x:Name="FocusGraph" />
+                        </ScrollViewer>
+                        <StackPanel x:Name="FocusByHabit" Spacing="10" />
+                    </StackPanel>
+                </Border>
 
-            <!-- Panel -->
-            <Border Grid.Row="1" Background="{ThemeResource AppBackgroundBrush}" CornerRadius="32,32,0,0" Padding="20,24,20,120">
-                <StackPanel MaxWidth="820" Spacing="16">
-
-                    <!-- This week -->
-                    <Grid x:Name="DayTiles" ColumnSpacing="8" />
-
-                    <!-- Dashboard tiles -->
-                    <Grid ColumnSpacing="12" RowSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
-                            <ColumnDefinition />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition />
-                            <RowDefinition />
-                        </Grid.RowDefinitions>
-                        <Border Style="{StaticResource DayriseCardStyle}">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Month progress" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="MonthPercent" Text="0%" Style="{StaticResource HeadlineLargeStyle}" />
-                                <ProgressBar x:Name="MonthBar" Maximum="100" Margin="0,6,0,0" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="1" Style="{StaticResource DayriseCardStyle}">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Top habit" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="TopHabit" Text="—" Style="{StaticResource TitleLargeStyle}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock x:Name="TopHabitDetail" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Row="1" Style="{StaticResource DayriseCardStyle}">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Best streak" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="BestStreak" Text="0" Style="{StaticResource HeadlineLargeStyle}" />
-                                <TextBlock x:Name="BestStreakDetail" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource DayriseCardStyle}">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Active days" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="ActiveDays" Text="0" Style="{StaticResource HeadlineLargeStyle}" />
-                                <TextBlock x:Name="ActiveDaysDetail" Text="this year" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-
-                    <!-- Focus -->
-                    <Grid Margin="2,12,0,0">
-                        <TextBlock Text="Focus" Style="{StaticResource HeadlineSmallStyle}" VerticalAlignment="Center" />
-                        <HyperlinkButton Content="Session history" HorizontalAlignment="Right" Click="OnSessionHistory" />
-                    </Grid>
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
-                            <ColumnDefinition />
-                            <ColumnDefinition />
-                            <ColumnDefinition />
-                        </Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource DayriseCardStyle}" Padding="14">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Today" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="FocusToday" Text="0m" Style="{StaticResource HeadlineMediumStyle}" />
-                                <TextBlock x:Name="FocusTodaySessions" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="1" Style="{StaticResource DayriseCardStyle}" Padding="14">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="This week" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="FocusWeek" Text="0m" Style="{StaticResource HeadlineMediumStyle}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="2" Style="{StaticResource DayriseCardStyle}" Padding="14">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Streak" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="FocusStreak" Text="0" Style="{StaticResource HeadlineMediumStyle}" />
-                                <TextBlock x:Name="FocusBest" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="3" Style="{StaticResource DayriseCardStyle}" Padding="14">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="All time" Style="{StaticResource LabelMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                                <TextBlock x:Name="FocusTotal" Text="0m" Style="{StaticResource HeadlineMediumStyle}" />
-                                <TextBlock x:Name="FocusTotalSessions" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-                    <Border Style="{StaticResource DayriseCardStyle}">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Last two weeks" Style="{StaticResource TitleSmallStyle}" />
-                            <controls:BarChart x:Name="FocusBars" />
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource DayriseCardStyle}">
-                        <StackPanel Spacing="12">
-                            <Grid>
-                                <TextBlock Text="Focus this year" Style="{StaticResource TitleSmallStyle}" />
-                                <TextBlock x:Name="FocusGoalText" HorizontalAlignment="Right" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
-                            </Grid>
-                            <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled">
-                                <controls:ContributionGraph x:Name="FocusGraph" />
-                            </ScrollViewer>
-                            <StackPanel x:Name="FocusByHabit" Spacing="8" />
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Habits -->
-                    <TextBlock Text="Habits" Style="{StaticResource HeadlineSmallStyle}" Margin="2,12,0,0" />
-                    <Border Style="{StaticResource DayriseCardStyle}">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="The past year" Style="{StaticResource TitleSmallStyle}" />
-                            <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled">
-                                <controls:ContributionGraph x:Name="YearGraph" />
-                            </ScrollViewer>
-                        </StackPanel>
-                    </Border>
+                <!-- Habits -->
+                <TextBlock Text="Habits" Style="{StaticResource TitleMediumStyle}" Margin="4,32,0,8" />
+                <Border Style="{StaticResource DayriseCardStyle}" Padding="20,18">
+                    <StackPanel Spacing="14">
+                        <Grid>
+                            <TextBlock Text="The past year" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                            <TextBlock x:Name="SunriseCount" HorizontalAlignment="Right" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                        </Grid>
+                        <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled">
+                            <controls:ContributionGraph x:Name="YearGraph" />
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource GroupedListStyle}" Margin="0,12,0,0">
                     <ItemsControl x:Name="HabitList">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Spacing="8" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="views:HabitSummary">
-                                <Button Style="{StaticResource SoftButtonStyle}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                        Background="{ThemeResource CardBrush}" BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="1"
-                                        CornerRadius="18" Padding="14,12" Tag="{x:Bind Id}" Click="OnOpenHabit">
-                                    <Grid ColumnSpacing="14">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Border Width="40" Height="40" CornerRadius="12" Background="{x:Bind Brush}">
-                                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="18" Foreground="White" />
-                                        </Border>
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind Name}" Style="{StaticResource TitleSmallStyle}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{x:Bind Detail}" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="2" Text="{x:Bind MonthText}" Style="{StaticResource BodySmallStyle}"
-                                                   Foreground="{ThemeResource TextMutedBrush}" VerticalAlignment="Center" />
-                                    </Grid>
-                                </Button>
+                                <Grid>
+                                    <Button Style="{StaticResource ListRowButtonStyle}" Padding="14,11" Tag="{x:Bind Id}" Click="OnOpenHabit"
+                                            AutomationProperties.Name="{x:Bind Name}">
+                                        <Grid ColumnSpacing="14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="34" Height="34" CornerRadius="9" Background="{x:Bind Brush}">
+                                                <FontIcon Glyph="{x:Bind Glyph}" FontSize="16" Foreground="White" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyLargeStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{x:Bind Detail}" Style="{StaticResource BodySmallStyle}" Foreground="{ThemeResource TextMutedBrush}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind MonthText}" Style="{StaticResource BodyMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" />
+                                                <FontIcon Glyph="&#xE76C;" FontSize="11" Foreground="{ThemeResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                    <Rectangle Height="1" VerticalAlignment="Bottom" Margin="62,0,0,0" Fill="{ThemeResource DividerBrush}"
+                                               Visibility="{x:Bind ShowDivider}" />
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
-            </Border>
-        </Grid>
+                </Border>
+                <TextBlock x:Name="NoHabits" Text="Habits you add show up here with their streaks." Visibility="Collapsed"
+                           Style="{StaticResource BodyMediumStyle}" Foreground="{ThemeResource TextMutedBrush}" Margin="4,8,0,0" />
+            </StackPanel>
+        </controls:ViewportPanel>
     </ScrollViewer>
 </Page>
