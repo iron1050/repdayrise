@@ -15,6 +15,7 @@ import com.repdayrise.app.data.model.AppIcon
 import com.repdayrise.app.domain.HabitLogic
 import com.repdayrise.app.notifications.Channels
 import com.repdayrise.app.notifications.ReminderScheduler
+import com.repdayrise.app.notifications.TimerLiveUpdates
 import com.repdayrise.app.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,7 @@ class DayriseApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         Channels.ensure(this)
+        TimerLiveUpdates.follow(container)
         publishWidgetPreviewsOnce()
     }
 

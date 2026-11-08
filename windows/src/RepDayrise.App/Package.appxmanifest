@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap com desktop rescap">
+
+  <!-- Publisher must match the signing certificate's subject (scripts/New-DevCert.ps1). Bump Version for each install. -->
+  <Identity
+    Name="RepDayrise"
+    Publisher="CN=RepDayrise Dev"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>RepDayrise</DisplayName>
+    <PublisherDisplayName>Chukwuma Dibia</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="RepDayrise"
+        Description="Finish your habits and the sun rises."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#0B1026" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Lets reminder toasts relaunch the app when it is closed. -->
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="6F3C2A4E-6E1B-4C7B-9C3D-2B7A5E1F9D40" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="RepDayrise.exe" Arguments="----AppNotificationActivated:" DisplayName="RepDayrise reminders">
+              <com:Class Id="6F3C2A4E-6E1B-4C7B-9C3D-2B7A5E1F9D40" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+        <!-- Lets invite links (dayrise://join/CODE) open the Follow dialog, matching the Android app. -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="dayrise">
+            <uap:DisplayName>RepDayrise invite</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

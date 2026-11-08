@@ -2,7 +2,6 @@ package com.repdayrise.app.notifications
 
 import android.Manifest
 import android.app.AlarmManager
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -10,7 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -32,6 +30,7 @@ import java.time.ZoneId
 object Channels {
     const val REMINDERS = "reminders"
     const val TIMERS = "timers"
+    const val TIMER_ALERTS = "timer_alerts"
 
     fun ensure(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -44,6 +43,11 @@ object Channels {
             NotificationChannel(TIMERS, context.getString(R.string.notification_channel_timers), NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Running habit timers."
                 setSound(null, null)
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(TIMER_ALERTS, context.getString(R.string.notification_channel_timer_alerts), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "A heads-up when a running timer reaches its goal."
             }
         )
     }
@@ -192,61 +196,5 @@ class BootReceiver : BroadcastReceiver() {
                 pending.finish()
             }
         }
-    }
-}
-
-/** Timer notifications. Uses Android 16 Live Updates (ProgressStyle, promoted ongoing) where available. */
-object TimerNotifier {
-    private const val ID = 500
-
-    fun show(context: Context, habit: Habit, elapsedMs: Long, running: Boolean) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        val open = PendingIntent.getActivity(
-            context, 900,
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(MainActivity.EXTRA_HABIT_ID, habit.id)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val goalMs = (habit.goal * 60_000).toLong().coerceAtLeast(60_000)
-        val minutes = (elapsedMs / 60000).toInt()
-        val seconds = ((elapsedMs / 1000) % 60).toInt()
-        val text = if (running) "%d:%02d · goal %s".format(minutes, seconds, habit.goalLabel()) else "Paused · %d:%02d".format(minutes, seconds)
-
-        if (Build.VERSION.SDK_INT >= 36) {
-            val style = Notification.ProgressStyle()
-                .setProgress((elapsedMs.coerceAtMost(goalMs) * 100 / goalMs).toInt())
-                .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100)))
-            val builder = Notification.Builder(context, Channels.TIMERS)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(habit.name)
-                .setContentText(text)
-                .setContentIntent(open)
-                .setOngoing(running)
-                .setOnlyAlertOnce(true)
-                .setStyle(style)
-            // Live Updates (promoted ongoing notifications) arrived in Android 16 QPR1 (API 36.1).
-            if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
-            if (running) {
-                builder.setWhen(System.currentTimeMillis() - elapsedMs).setUsesChronometer(true).setShowWhen(true)
-            }
-            context.getSystemService(NotificationManager::class.java).notify(ID, builder.build())
-        } else {
-            val builder = NotificationCompat.Builder(context, Channels.TIMERS)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(habit.name)
-                .setContentText(text)
-                .setContentIntent(open)
-                .setOngoing(running)
-                .setOnlyAlertOnce(true)
-                .setProgress(100, (elapsedMs.coerceAtMost(goalMs) * 100 / goalMs).toInt(), false)
-            if (running) builder.setWhen(System.currentTimeMillis() - elapsedMs).setUsesChronometer(true).setShowWhen(true)
-            NotificationManagerCompat.from(context).notify(ID, builder.build())
-        }
-    }
-
-    fun dismiss(context: Context) {
-        NotificationManagerCompat.from(context).cancel(ID)
     }
 }

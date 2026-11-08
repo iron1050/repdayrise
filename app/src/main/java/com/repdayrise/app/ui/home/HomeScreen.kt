@@ -1,6 +1,14 @@
 package com.repdayrise.app.ui.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import com.repdayrise.app.notifications.TimerLiveUpdates
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -145,6 +153,16 @@ fun HomeScreen(
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
     var valueSheetFor by remember { mutableStateOf<HabitRowUi?>(null) }
+    // Timers show as a Live Update, so ask for notifications the first time one starts.
+    val context = LocalContext.current
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) TimerLiveUpdates.refresh()
+    }
+    fun ensureNotifications() {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     val backdrop = rememberBackdrop()
     val sky = rememberSkyState(state.progress, state.selectedDate)
@@ -276,6 +294,7 @@ fun HomeScreen(
                                                 viewModel.setValue(row.habit, 0.0)
                                             } else {
                                                 if (state.haptics) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                                                if (row.timer?.running != true) ensureNotifications()
                                                 viewModel.toggleTimer(row.habit, row.timer)
                                             }
                                         }
