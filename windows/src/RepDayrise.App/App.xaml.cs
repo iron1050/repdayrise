@@ -29,6 +29,9 @@ public partial class App : Application
         AppNotificationManager.Default.NotificationInvoked += (_, e) => AppServices.OnUi(() => HandleArgument(e.Argument));
         try { AppNotificationManager.Default.Register(); } catch { /* notifications unavailable */ }
 
+        // Catch up a focus run that ended while the app was closed, before any toast button acts on it.
+        AppServices.Focus.Tick();
+
         Window = new MainWindow();
         Window.Activate();
 
@@ -82,5 +85,23 @@ public partial class App : Application
         if (string.IsNullOrEmpty(argument)) return;
         if (argument.StartsWith("habit=", StringComparison.Ordinal) && long.TryParse(argument.AsSpan(6), out var id))
             Window?.OpenHabit(id);
+        else if (argument.StartsWith("focus=", StringComparison.Ordinal))
+            HandleFocusAction(argument[6..]);
+    }
+
+    /// <summary>Buttons on the focus phase-end notification.</summary>
+    private void HandleFocusAction(string action)
+    {
+        var focus = AppServices.Focus;
+        focus.Tick(); // make sure the phase that just ended is recorded first
+        switch (action)
+        {
+            case "resume": focus.Resume(); break;
+            case "pause": focus.Pause(); break;
+            case "skip": focus.Skip(); break;
+            case "stop": focus.Stop(); break;
+            case "extend5": focus.Extend(TimeSpan.FromMinutes(5)); break;
+        }
+        Window?.Go(Controls.Destination.Focus);
     }
 }

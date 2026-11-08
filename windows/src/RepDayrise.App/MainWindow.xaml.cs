@@ -24,12 +24,18 @@ public sealed partial class MainWindow : Window
 {
     private static readonly Dictionary<Destination, Type> Destinations = new()
     {
-        [Destination.Focus] = typeof(TodayPage),
+        [Destination.Focus] = typeof(FocusPage),
         [Destination.Progress] = typeof(HistoryPage),
         [Destination.Habits] = typeof(TodayPage),
     };
 
     private Destination? _current;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _heartbeat;
+    private TaskbarProgress? _taskbar;
+    private Windows.Media.Playback.MediaPlayer? _chime;
+
+    /// <summary>Raised on the UI thread about twice a second with the focus run (after completing any due phase).</summary>
+    public static event Action<FocusRun?>? FocusHeartbeat;
 
     public MainWindow()
     {
@@ -66,6 +72,16 @@ public sealed partial class MainWindow : Window
         Bar.Navigate += Go;
         AddAccelerators();
         Go(Destination.Focus);
+
+        // The focus heartbeat: completes due phases and keeps the bar, title and taskbar in step.
+        _taskbar = new TaskbarProgress(WindowNative.GetWindowHandle(this));
+        _heartbeat = DispatcherQueue.CreateTimer();
+        _heartbeat.Interval = TimeSpan.FromMilliseconds(500);
+        _heartbeat.Tick += (_, _) => Beat();
+        _heartbeat.Start();
+        AppServices.Focus.Changed += _ => AppServices.OnUi(Beat);
+        AppServices.Focus.PhaseCompleted += _ => AppServices.OnUi(Chime);
+        Beat();
 
         Root.Loaded += async (_, _) =>
         {
@@ -168,6 +184,47 @@ public sealed partial class MainWindow : Window
         Add((VirtualKey)188, VirtualKeyModifiers.Control, OpenSettings); // Ctrl+,
         Add(VirtualKey.Escape, VirtualKeyModifiers.None, () => GoBack());
         Root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
+    }
+
+    // ---- Focus heartbeat ----------------------------------------------------------------------
+
+    private void Beat()
+    {
+        var focus = AppServices.Focus;
+        var run = focus.Tick();
+        var now = focus.Now;
+        Bar.ShowRun(run, now);
+
+        // Time left in the window title shows on the taskbar thumbnail and Alt+Tab.
+        Title = run is { AwaitingStart: false }
+            ? $"{FloatingBar.FormatClock(run.RemainingMs(now))} · {(run.IsBreak ? "Break" : "Focus")} — RepDayrise"
+            : "RepDayrise";
+        _taskbar?.Set(
+            run == null || run.AwaitingStart ? TaskbarProgress.State.None : run.Running ? TaskbarProgress.State.Normal : TaskbarProgress.State.Paused,
+            run?.Fraction(now) ?? 0);
+
+        FocusHeartbeat?.Invoke(run);
+    }
+
+    /// <summary>
+    /// The phase-end toast has its own sound, but Windows Focus mutes it; then a soft in-app chime still says the
+    /// phase is over, as long as the app is running and sound is on.
+    /// </summary>
+    private void Chime()
+    {
+        if (!AppServices.Settings.Current.Focus.Sound || !QuietHours.SystemFocusActive) return;
+        try
+        {
+            var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Media", "Windows Notify Calendar.wav");
+            if (!File.Exists(file)) return;
+            _chime ??= new Windows.Media.Playback.MediaPlayer { Volume = 0.6 };
+            _chime.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(file));
+            _chime.Play();
+        }
+        catch (Exception e)
+        {
+            System.Diagnostics.Debug.WriteLine($"Chime failed: {e}");
+        }
     }
 
     // ---- Caption buttons ----------------------------------------------------------------------

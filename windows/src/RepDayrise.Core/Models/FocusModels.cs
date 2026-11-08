@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RepDayrise.Core.Models;
 
 public enum FocusPhase { FOCUS, SHORT_BREAK, LONG_BREAK }
@@ -74,8 +76,10 @@ public sealed record FocusRun
     public double Fraction(long now) => PhaseDurationMs <= 0 ? 1 : Math.Clamp(ElapsedMs(now) / (double)PhaseDurationMs, 0, 1);
 
     /// <summary>When the running phase will end (ms), or null while paused or waiting.</summary>
+    [JsonIgnore]
     public long? PhaseEndsAt => Running ? PhaseStartedAt + (PhaseDurationMs - AccumulatedMs) : null;
 
+    [JsonIgnore]
     public bool IsBreak => Phase != FocusPhase.FOCUS;
 }
 
