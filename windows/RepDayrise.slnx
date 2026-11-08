@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RepDayrise.App/RepDayrise.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/RepDayrise.Core/RepDayrise.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RepDayrise.Core.Tests/RepDayrise.Core.Tests.csproj" />
+  </Folder>
+</Solution>

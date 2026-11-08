@@ -1,0 +1,10 @@
+bin/
+obj/
+AppPackages/
+*.user
+.vs/
+
+# Local signing: the dev certificate and its thumbprint never leave this machine.
+signing.props
+*.pfx
+*.cer
