@@ -25,7 +25,7 @@ public sealed partial class MainWindow : Window
     private static readonly Dictionary<Destination, Type> Destinations = new()
     {
         [Destination.Focus] = typeof(FocusPage),
-        [Destination.Progress] = typeof(HistoryPage),
+        [Destination.Progress] = typeof(ProgressPage),
         [Destination.Habits] = typeof(TodayPage),
     };
 
@@ -110,6 +110,7 @@ public sealed partial class MainWindow : Window
         _current = destination;
         ContentFrame.Navigate(Destinations[destination], null, new EntranceNavigationTransitionInfo());
         ContentFrame.BackStack.Clear(); // top-level pages are peers, not a history
+        RefreshChrome();
     }
 
     /// <summary>Opens a drill-in page (habit detail, edit, partner…) on top of the current one.</summary>
@@ -156,12 +157,14 @@ public sealed partial class MainWindow : Window
         SetForegroundWindow(WindowNative.GetWindowHandle(this));
     }
 
-    private void OnNavigated(object sender, NavigationEventArgs e)
+    private void OnNavigated(object sender, NavigationEventArgs e) => RefreshChrome();
+
+    /// <summary>Back button, bar highlight and caption colours for whatever page is showing.</summary>
+    private void RefreshChrome()
     {
-        BackButton.Visibility = ContentFrame.CanGoBack ? Visibility.Visible : Visibility.Collapsed;
-        var top = Destinations.Where(kv => kv.Value == e.SourcePageType).Select(kv => (Destination?)kv.Key).FirstOrDefault();
-        if (ContentFrame.BackStack.Count == 0 && top != null && _current != null) top = _current;
-        Bar.SetSelected(ContentFrame.CanGoBack ? null : top);
+        var drilledIn = ContentFrame.CanGoBack;
+        BackButton.Visibility = drilledIn ? Visibility.Visible : Visibility.Collapsed;
+        Bar.SetSelected(drilledIn ? null : _current);
         UpdateCaptionButtons();
     }
 
