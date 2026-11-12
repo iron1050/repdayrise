@@ -5,7 +5,8 @@
   "description": "Accountability-partner sharing backend for Dayrise (Cloudflare Workers + D1).",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --ip 0.0.0.0",
+    "dev": "wrangler dev --ip 0.0.0.0 --var RATE_LIMITS:off",
+    "dev:limits": "wrangler dev --ip 0.0.0.0",
     "deploy": "wrangler deploy",
     "smoke": "node scripts/smoke.mjs",
     "typecheck": "tsc --noEmit"

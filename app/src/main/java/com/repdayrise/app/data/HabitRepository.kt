@@ -22,10 +22,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** Hooks the repository calls after data changes (widgets, reminders). */
+/** Hooks the repository calls after data changes (widgets, reminders, cloud backup). */
 interface DataChangeListener {
     fun onHabitsChanged()
     fun onEntriesChanged()
+    /** Order and groups changed: nothing on screen outside the app depends on it, but the backup does. */
+    fun onLayoutChanged() {}
 }
 
 class HabitRepository(
@@ -103,6 +105,7 @@ class HabitRepository(
 
     suspend fun reorder(ids: List<Long>) {
         ids.forEachIndexed { index, id -> habitDao.updateSortOrder(id, index) }
+        listener?.onLayoutChanged()
     }
 
     suspend fun setValue(habitId: Long, date: LocalDate, value: Double) {
@@ -129,19 +132,24 @@ class HabitRepository(
     // Groups
     suspend fun createGroup(name: String): Long {
         val next = (groupDao.getAll().maxOfOrNull { it.sortOrder } ?: -1) + 1
-        return groupDao.insert(GroupEntity(name = name, sortOrder = next, collapsed = false))
+        return groupDao.insert(GroupEntity(name = name, sortOrder = next, collapsed = false)).also { listener?.onLayoutChanged() }
     }
 
     suspend fun renameGroup(id: Long, name: String) {
         val g = groupDao.getAll().firstOrNull { it.id == id } ?: return
         groupDao.update(g.copy(name = name))
+        listener?.onLayoutChanged()
     }
 
-    suspend fun setGroupCollapsed(id: Long, collapsed: Boolean) = groupDao.setCollapsed(id, collapsed)
+    suspend fun setGroupCollapsed(id: Long, collapsed: Boolean) {
+        groupDao.setCollapsed(id, collapsed)
+        listener?.onLayoutChanged()
+    }
 
     suspend fun deleteGroup(id: Long) {
         groupDao.detachHabits(id)
         groupDao.delete(id)
+        listener?.onLayoutChanged()
     }
 
     // Timers

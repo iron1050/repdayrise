@@ -6,22 +6,22 @@ import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** The server answered, but not with success. [message] is safe to show. */
-class ApiException(val status: Int, override val message: String) : Exception(message)
+/** The server answered, but not with success. [message] is safe to show. [retryAfterSeconds] comes from a 429. */
+class ApiException(val status: Int, override val message: String, val retryAfterSeconds: Long? = null) : Exception(message)
 
 internal val SharingJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-/** Thin client for the Dayrise sharing backend (see /backend). Every call names its server, since lists can live on different ones. */
-internal class SharingApi {
-    private class Reply(val status: Int, val body: String)
+/** The one HTTP call every Dayrise backend client goes through. */
+internal object DayriseHttp {
+    class Reply(val status: Int, val body: String)
 
-    private suspend fun call(base: String, method: String, path: String, token: String? = null, body: String? = null, etag: String? = null): Reply =
+    suspend fun call(base: String, method: String, path: String, token: String? = null, body: String? = null, etag: String? = null): Reply =
         withContext(Dispatchers.IO) {
             val conn = URL(base + path).openConnection() as HttpURLConnection
             try {
                 conn.requestMethod = method
                 conn.connectTimeout = 10_000
-                conn.readTimeout = 15_000
+                conn.readTimeout = 30_000
                 conn.setRequestProperty("Accept", "application/json")
                 if (token != null) conn.setRequestProperty("Authorization", "Bearer $token")
                 if (etag != null) conn.setRequestProperty("If-None-Match", etag)
@@ -35,11 +35,21 @@ internal class SharingApi {
                 val text = stream?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
                 if (status in 200..299 || status == 304) return@withContext Reply(status, text)
                 val message = runCatching { SharingJson.decodeFromString<ErrorBody>(text).message }.getOrNull()
-                throw ApiException(status, message?.takeIf { it.isNotBlank() } ?: "The server said no ($status).")
+                throw ApiException(
+                    status,
+                    message?.takeIf { it.isNotBlank() } ?: "The server said no ($status).",
+                    conn.getHeaderField("Retry-After")?.trim()?.toLongOrNull(),
+                )
             } finally {
                 conn.disconnect()
             }
         }
+}
+
+/** Thin client for the Dayrise sharing backend (see /backend). Every call names its server, since lists can live on different ones. */
+internal class SharingApi {
+    private suspend fun call(base: String, method: String, path: String, token: String? = null, body: String? = null, etag: String? = null) =
+        DayriseHttp.call(base, method, path, token, body, etag)
 
     suspend fun createShare(base: String, name: String): CreateShareResponse =
         SharingJson.decodeFromString(call(base, "POST", "/v1/shares", body = SharingJson.encodeToString(NameBody(name))).body)

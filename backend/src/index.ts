@@ -15,10 +15,26 @@
  *   GET    /v1/feed                          partner: latest snapshot (ETag / 304 aware)
  *   DELETE /v1/feed                          partner: unsubscribe
  *   GET    /j/:code                          invite landing page that opens the app
+ *
+ * Cloud backup: a phone uploads its whole database as one JSON row. The recovery code is the
+ * only credential (sent as the bearer token), and only its SHA-256 is stored.
+ *
+ *   POST   /v1/backups                       create a backup           -> { code }
+ *   GET    /v1/backups                       read it (ETag / 304 aware)
+ *   PUT    /v1/backups                       replace it                -> { version, updatedAt }
+ *   DELETE /v1/backups                       delete it
+ *
+ * Abuse limits: a per-IP burst limit on every /v1 request (Workers rate limiting binding), daily
+ * per-IP and global caps on the endpoints that create rows, a per-backup write throttle, size
+ * caps on every body, and a daily cron that clears out abandoned backups.
  */
 
 export interface Env {
   DB: D1Database;
+  /** Per-IP burst limiter. Optional so a copy deployed without it still works. */
+  BURST?: RateLimit;
+  /** "off" disables the per-IP and global caps, for local testing only. */
+  RATE_LIMITS?: string;
 }
 
 const MAX_SNAPSHOT_BYTES = 256 * 1024;
@@ -29,6 +45,23 @@ const SEEN_THROTTLE_MS = 60 * 60 * 1000;
 /** No 0/O/1/I/L: codes get read aloud and typed on phones. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 10;
+/** ~148 bits: recovery codes are bearer credentials, so they must be unguessable. */
+const RECOVERY_LENGTH = 30;
+const MAX_BACKUP_BYTES = 1024 * 1024;
+/** A phone debounces its uploads; anything faster than this is a bug or abuse. */
+const BACKUP_MIN_INTERVAL_MS = 10 * 1000;
+const BACKUP_MAX_WRITES_PER_DAY = 500;
+/** Backups nobody has written to for this long are deleted by the daily cron. */
+const BACKUP_TTL_MS = 400 * 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+/** [limit, window] for each kind of request that creates rows. */
+const CAPS = {
+  createBackupPerIp: [5, DAY_MS],
+  createBackupGlobal: [2000, DAY_MS],
+  createSharePerIp: [10, DAY_MS],
+  joinPerIp: [30, HOUR_MS],
+} as const;
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS shares (
@@ -50,6 +83,23 @@ const SCHEMA = [
      last_seen_at INTEGER
    )`,
   `CREATE INDEX IF NOT EXISTS subscribers_share ON subscribers(share_id)`,
+  `CREATE TABLE IF NOT EXISTS backups (
+     id TEXT PRIMARY KEY,
+     code_hash TEXT NOT NULL UNIQUE,
+     data TEXT,
+     version INTEGER NOT NULL DEFAULT 0,
+     size INTEGER NOT NULL DEFAULT 0,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL,
+     day INTEGER NOT NULL DEFAULT 0,
+     day_writes INTEGER NOT NULL DEFAULT 0
+   )`,
+  `CREATE INDEX IF NOT EXISTS backups_updated ON backups(updated_at)`,
+  `CREATE TABLE IF NOT EXISTS rate_limits (
+     key TEXT PRIMARY KEY,
+     window INTEGER NOT NULL,
+     count INTEGER NOT NULL
+   )`,
 ];
 
 /** Tables are created on the first request an isolate serves, so deploying needs no migration step. */
@@ -63,9 +113,13 @@ function ensureSchema(db: D1Database): Promise<unknown> {
 }
 
 class HttpError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string) {
+  constructor(readonly status: number, readonly code: string, message: string, readonly retryAfterSec?: number) {
     super(message);
   }
+}
+
+function tooMany(retryAfterMs: number, message = "Too many requests. Try again later."): HttpError {
+  return new HttpError(429, "rate_limited", message, Math.max(1, Math.ceil(retryAfterMs / 1000)));
 }
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -80,16 +134,21 @@ function randomToken(bytes = 32): string {
   return btoa(String.fromCharCode(...buf)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function randomCode(): string {
+function randomCode(length = CODE_LENGTH): string {
   // Rejection sampling keeps every character equally likely.
   const limit = 256 - (256 % CODE_ALPHABET.length);
   let out = "";
-  while (out.length < CODE_LENGTH) {
-    for (const b of crypto.getRandomValues(new Uint8Array(CODE_LENGTH * 2))) {
-      if (b < limit && out.length < CODE_LENGTH) out += CODE_ALPHABET[b % CODE_ALPHABET.length];
+  while (out.length < length) {
+    for (const b of crypto.getRandomValues(new Uint8Array(length * 2))) {
+      if (b < limit && out.length < length) out += CODE_ALPHABET[b % CODE_ALPHABET.length];
     }
   }
   return out;
+}
+
+/** Groups of five, so a 30-character recovery code reads as ABCDE-FGHJK-… */
+function groupCode(code: string): string {
+  return code.match(/.{1,5}/g)?.join("-") ?? code;
 }
 
 /** Accepts codes however people type them: lower case, with dashes or spaces. */
@@ -115,11 +174,35 @@ function cleanName(raw: unknown): string {
   return name;
 }
 
+/** Reads at most [maxBytes] of the body, stopping as soon as it goes over rather than buffering it all. */
+async function readBody(req: Request, maxBytes: number): Promise<string> {
+  const tooLarge = () => new HttpError(413, "too_large", "Request body is too large.");
+  if (Number(req.headers.get("content-length") ?? 0) > maxBytes) throw tooLarge();
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    all.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(all);
+}
+
 async function readJson(req: Request, maxBytes: number): Promise<Record<string, unknown>> {
-  const declared = Number(req.headers.get("content-length") ?? 0);
-  if (declared > maxBytes) throw new HttpError(413, "too_large", "Request body is too large.");
-  const text = await req.text();
-  if (new TextEncoder().encode(text).length > maxBytes) throw new HttpError(413, "too_large", "Request body is too large.");
+  const text = await readBody(req, maxBytes);
   let body: unknown;
   try {
     body = JSON.parse(text);
@@ -130,6 +213,41 @@ async function readJson(req: Request, maxBytes: number): Promise<Record<string, 
     throw new HttpError(400, "bad_json", "Request body must be a JSON object.");
   }
   return body as Record<string, unknown>;
+}
+
+function clientIp(req: Request): string {
+  return req.headers.get("cf-connecting-ip") ?? "unknown";
+}
+
+/** Burst limit on every API request. Costs no database reads or writes. */
+async function checkBurst(env: Env, req: Request): Promise<void> {
+  if (!env.BURST || env.RATE_LIMITS === "off") return;
+  const { success } = await env.BURST.limit({ key: clientIp(req) });
+  if (!success) throw tooMany(60_000);
+}
+
+/**
+ * Counts one request against [key] in a fixed window and rejects it past [limit]. One row write.
+ * IPs are hashed first so the table never holds a raw address.
+ */
+async function hit(env: Env, key: string, [limit, windowMs]: readonly [number, number]): Promise<void> {
+  if (env.RATE_LIMITS === "off") return;
+  const now = Date.now();
+  // The window's start time, so the cron can clear old rows whatever their window length.
+  const window = Math.floor(now / windowMs) * windowMs;
+  const row = await env.DB.prepare(
+    `INSERT INTO rate_limits (key, window, count) VALUES (?, ?, 1)
+     ON CONFLICT(key) DO UPDATE SET
+       count = CASE WHEN window = excluded.window THEN count + 1 ELSE 1 END,
+       window = excluded.window
+     RETURNING count`,
+  ).bind(key, window).first<{ count: number }>();
+  if ((row?.count ?? 0) > limit) throw tooMany(window + windowMs - now);
+}
+
+async function hitPerIp(env: Env, req: Request, name: string, cap: readonly [number, number]): Promise<void> {
+  if (env.RATE_LIMITS === "off") return;
+  await hit(env, `${name}:${(await sha256(clientIp(req))).slice(0, 32)}`, cap);
 }
 
 interface ShareRow {
@@ -158,6 +276,7 @@ function formatCode(code: string): string {
 async function createShare(env: Env, req: Request): Promise<Response> {
   const body = await readJson(req, 4096);
   const name = cleanName(body.name);
+  await hitPerIp(env, req, "share", CAPS.createSharePerIp);
   const id = crypto.randomUUID();
   const token = randomToken();
   const now = Date.now();
@@ -231,6 +350,8 @@ async function join(env: Env, req: Request): Promise<Response> {
   const body = await readJson(req, 4096);
   const name = cleanName(body.name);
   const code = normalizeCode(body.code);
+  // Counted before the lookup, so wrong guesses use up the allowance too.
+  await hitPerIp(env, req, "join", CAPS.joinPerIp);
   if (code.length !== CODE_LENGTH) throw new HttpError(404, "bad_code", "That code doesn't match a shared list.");
   const share = await env.DB.prepare("SELECT id, owner_name FROM shares WHERE code = ?").bind(code).first<{ id: string; owner_name: string }>();
   if (!share) throw new HttpError(404, "bad_code", "That code doesn't match a shared list.");
@@ -292,6 +413,108 @@ async function unsubscribe(env: Env, req: Request): Promise<Response> {
   return new Response(null, { status: 204 });
 }
 
+// ---- Cloud backup -------------------------------------------------------------------------
+
+interface BackupRow {
+  id: string;
+  data: string | null;
+  version: number;
+  size: number;
+  updated_at: number;
+  day: number;
+  day_writes: number;
+}
+
+async function recoveryHash(req: Request): Promise<string> {
+  const code = normalizeCode(bearer(req));
+  if (code.length !== RECOVERY_LENGTH) throw new HttpError(401, "unauthorized", "Unknown recovery code.");
+  return sha256(code);
+}
+
+async function ownedBackup(env: Env, req: Request): Promise<BackupRow> {
+  const hash = await recoveryHash(req);
+  const row = await env.DB.prepare(
+    "SELECT id, data, version, size, updated_at, day, day_writes FROM backups WHERE code_hash = ?",
+  ).bind(hash).first<BackupRow>();
+  if (!row) throw new HttpError(401, "unauthorized", "Unknown recovery code.");
+  return row;
+}
+
+async function createBackup(env: Env, req: Request): Promise<Response> {
+  await hitPerIp(env, req, "backup", CAPS.createBackupPerIp);
+  await hit(env, "backup:global", CAPS.createBackupGlobal);
+  const code = randomCode(RECOVERY_LENGTH);
+  const now = Date.now();
+  await env.DB.prepare(
+    "INSERT INTO backups (id, code_hash, version, size, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)",
+  ).bind(crypto.randomUUID(), await sha256(code), now, now).run();
+  return json({ code: groupCode(code) }, 201);
+}
+
+async function writeBackup(env: Env, req: Request): Promise<Response> {
+  const row = await ownedBackup(env, req);
+  const now = Date.now();
+  // The first write after creating is allowed straight away.
+  if (row.version > 0 && now - row.updated_at < BACKUP_MIN_INTERVAL_MS) {
+    throw tooMany(BACKUP_MIN_INTERVAL_MS - (now - row.updated_at), "Backing up too often. Try again in a few seconds.");
+  }
+  const today = Math.floor(now / DAY_MS);
+  if (row.day === today && row.day_writes >= BACKUP_MAX_WRITES_PER_DAY) {
+    throw tooMany((today + 1) * DAY_MS - now, "This backup has been updated too many times today.");
+  }
+
+  const body = await readJson(req, MAX_BACKUP_BYTES + 1024);
+  const data = body.data;
+  if (typeof data !== "object" || data === null || Array.isArray(data) || (data as Record<string, unknown>).app !== "dayrise") {
+    throw new HttpError(400, "bad_backup", "data must be a Dayrise backup.");
+  }
+  const text = JSON.stringify(data);
+  const size = new TextEncoder().encode(text).length;
+  if (size > MAX_BACKUP_BYTES) throw new HttpError(413, "too_large", "This backup is too large.");
+
+  const base = body.baseVersion;
+  if (base !== undefined && base !== null && typeof base !== "number") {
+    throw new HttpError(400, "bad_version", "baseVersion must be a number.");
+  }
+  // The version check is part of the UPDATE, so two phones racing can't both win.
+  const updated = await env.DB.prepare(
+    `UPDATE backups SET data = ?, size = ?, version = version + 1, updated_at = ?,
+       day_writes = CASE WHEN day = ? THEN day_writes + 1 ELSE 1 END, day = ?
+     WHERE id = ? AND (? IS NULL OR version = ?)
+     RETURNING version`,
+  ).bind(text, size, now, today, today, row.id, base ?? null, base ?? null).first<{ version: number }>();
+  if (!updated) throw new HttpError(409, "conflict", "This backup was changed from another device.");
+  return json({ version: updated.version, updatedAt: now });
+}
+
+async function readBackup(env: Env, req: Request): Promise<Response> {
+  const row = await ownedBackup(env, req);
+  const etag = `"b-${row.version}"`;
+  const ifNoneMatch = (req.headers.get("if-none-match") ?? "").split(",").map((t) => t.trim().replace(/^W\//, ""));
+  if (ifNoneMatch.includes(etag)) return new Response(null, { status: 304, headers: { etag } });
+  return json(
+    { version: row.version, updatedAt: row.updated_at, size: row.size, data: row.data ? JSON.parse(row.data) : null },
+    200,
+    { etag },
+  );
+}
+
+async function deleteBackup(env: Env, req: Request): Promise<Response> {
+  await env.DB.prepare("DELETE FROM backups WHERE code_hash = ?").bind(await recoveryHash(req)).run();
+  return new Response(null, { status: 204 });
+}
+
+async function cleanup(env: Env): Promise<void> {
+  await ensureSchema(env.DB);
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM backups WHERE updated_at < ?").bind(now - BACKUP_TTL_MS),
+    // Created but never written to: someone turned backup on and the first upload never came.
+    env.DB.prepare("DELETE FROM backups WHERE version = 0 AND created_at < ?").bind(now - DAY_MS),
+    env.DB.prepare("DELETE FROM rate_limits WHERE window < ?").bind(now - 2 * DAY_MS),
+  ]);
+}
+
 function invitePage(rawCode: string): Response {
   const code = normalizeCode(rawCode);
   if (code.length !== CODE_LENGTH) return new Response("Not found", { status: 404 });
@@ -328,8 +551,16 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   if (parts[0] === "j" && parts.length === 2 && method === "GET") return invitePage(parts[1]);
   if (parts[0] !== "v1") throw new HttpError(404, "not_found", "Not found.");
 
+  await checkBurst(env, req);
   await ensureSchema(env.DB);
   const [, resource, id, sub, subId] = parts;
+
+  if (resource === "backups" && parts.length === 2) {
+    if (method === "POST") return createBackup(env, req);
+    if (method === "GET") return readBackup(env, req);
+    if (method === "PUT") return writeBackup(env, req);
+    if (method === "DELETE") return deleteBackup(env, req);
+  }
 
   if (resource === "shares") {
     if (parts.length === 2 && method === "POST") return createShare(env, req);
@@ -352,9 +583,15 @@ export default {
     try {
       return await route(req, env, ctx);
     } catch (e) {
-      if (e instanceof HttpError) return json({ error: e.code, message: e.message }, e.status);
+      if (e instanceof HttpError) {
+        const headers: Record<string, string> = e.retryAfterSec ? { "retry-after": String(e.retryAfterSec) } : {};
+        return json({ error: e.code, message: e.message }, e.status, headers);
+      }
       console.error(e);
       return json({ error: "internal", message: "Something went wrong." }, 500);
     }
+  },
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(cleanup(env));
   },
 } satisfies ExportedHandler<Env>;

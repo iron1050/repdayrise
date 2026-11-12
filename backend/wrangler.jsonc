@@ -9,5 +9,12 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "dayrise", "database_id": "d830d727-bd42-4806-8bb0-aceba2fc031a" }
   ],
+  // Per-IP burst limit on every API request (see checkBurst in src/index.ts). The namespace id is
+  // any number unique within the account.
+  "ratelimits": [
+    { "name": "BURST", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }
+  ],
+  // Daily cleanup of abandoned backups and old rate-limit counters.
+  "triggers": { "crons": ["17 3 * * *"] },
   "observability": { "enabled": true }
 }

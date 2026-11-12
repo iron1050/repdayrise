@@ -46,7 +46,8 @@ class SharingRepository(
 
     /** The address new shares and joins go to: the in-app override, else the build-time default. */
     val defaultServerUrl: String get() = normalizeUrl(BuildConfig.SHARING_URL)
-    private fun serverUrl(): String = normalizeUrl(_state.value.serverUrl).ifBlank { defaultServerUrl }
+    /** The server in use: the same Worker also stores cloud backups. */
+    fun serverUrl(): String = normalizeUrl(_state.value.serverUrl).ifBlank { defaultServerUrl }
 
     init {
         @OptIn(FlowPreview::class)

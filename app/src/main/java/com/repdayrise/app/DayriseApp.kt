@@ -8,6 +8,7 @@ import com.repdayrise.app.data.DataChangeListener
 import com.repdayrise.app.data.DataBackup
 import com.repdayrise.app.data.HabitRepository
 import com.repdayrise.app.data.SettingsRepository
+import com.repdayrise.app.data.cloud.CloudBackupRepository
 import com.repdayrise.app.data.db.DayriseDatabase
 import com.repdayrise.app.data.health.HealthConnectManager
 import com.repdayrise.app.data.health.HealthSync
@@ -58,6 +59,7 @@ class AppContainer(val context: Context) {
     val reminderScheduler = ReminderScheduler(context)
     val widgetUpdater = WidgetUpdater(context)
     val sharing = SharingRepository(context, repository, settings, appScope)
+    val cloud = CloudBackupRepository(context, backup, sharing::serverUrl, appScope)
 
     @Volatile private var weekStartsMonday = true
 
@@ -69,12 +71,16 @@ class AppContainer(val context: Context) {
                     widgetUpdater.updateAll()
                 }
                 sharing.requestSync()
+                cloud.requestSync()
             }
 
             override fun onEntriesChanged() {
                 appScope.launch { widgetUpdater.updateAll() }
                 sharing.requestSync()
+                cloud.requestSync()
             }
+
+            override fun onLayoutChanged() = cloud.requestSync()
         }
         appScope.launch {
             settings.settings.collect {

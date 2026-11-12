@@ -26,7 +26,10 @@ class BackupException(message: String) : Exception(message)
  */
 class DataBackup(private val context: Context, private val db: DayriseDatabase, private val repository: HabitRepository) {
 
-    suspend fun export(): String {
+    suspend fun export(): String = snapshot().put("exportedAt", System.currentTimeMillis()).toString(1)
+
+    /** Everything [export] writes except the timestamp, so two snapshots of unchanged data compare equal. */
+    suspend fun snapshot(): JSONObject {
         val groups = db.groupDao().getAll()
         val habits = db.habitDao().getAll()
         val reminders = db.reminderDao().getAll()
@@ -34,7 +37,6 @@ class DataBackup(private val context: Context, private val db: DayriseDatabase, 
         return JSONObject().apply {
             put("app", APP)
             put("version", VERSION)
-            put("exportedAt", System.currentTimeMillis())
             put("groups", JSONArray(groups.map { g ->
                 JSONObject().put("id", g.id).put("name", g.name).put("sortOrder", g.sortOrder).put("collapsed", g.collapsed)
             }))
@@ -52,8 +54,8 @@ class DataBackup(private val context: Context, private val db: DayriseDatabase, 
                     .put("daysMask", r.daysMask).put("enabled", r.enabled)
             }))
             // Compact [habitId, epochDay, value] triples keep a year of entries small.
-            put("entries", JSONArray(entries.map { e -> JSONArray().put(e.habitId).put(e.date).put(e.value) }))
-        }.toString(1)
+            put("entries", JSONArray(entries.sortedWith(compareBy({ it.habitId }, { it.date })).map { e -> JSONArray().put(e.habitId).put(e.date).put(e.value) }))
+        }
     }
 
     /** Parses and checks a file without touching the database. */

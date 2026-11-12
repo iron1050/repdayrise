@@ -75,6 +75,33 @@ const huge = { blob: "x".repeat(300 * 1024) };
 check("oversized snapshot rejected", (await call("PUT", `/v1/shares/${big.data.id}`, { token: big.data.token, body: { snapshot: huge } })).status === 413);
 await call("DELETE", `/v1/shares/${big.data.id}`, { token: big.data.token });
 
+// ---- Cloud backup ----
+const backup = await call("POST", "/v1/backups");
+check("create backup", backup.status === 201 && /^([A-Z2-9]{5}-){5}[A-Z2-9]{5}$/.test(backup.data.code), JSON.stringify(backup));
+const rc = backup.data.code;
+const data = { app: "dayrise", version: 1, habits: [{ id: 1, name: "Read" }], entries: [[1, 20000, 1]], groups: [], reminders: [] };
+
+const empty = await call("GET", "/v1/backups", { token: rc });
+check("new backup is empty", empty.status === 200 && empty.data.version === 0 && empty.data.data === null, JSON.stringify(empty));
+const w1 = await call("PUT", "/v1/backups", { token: rc, body: { data, baseVersion: 0 } });
+check("write backup", w1.status === 200 && w1.data.version === 1, JSON.stringify(w1));
+const r1 = await call("GET", "/v1/backups", { token: rc.toLowerCase() });
+check("read backup with lower-case code", r1.status === 200 && r1.data.data.habits[0].name === "Read" && r1.data.version === 1, JSON.stringify(r1));
+check("backup honours etag", (await call("GET", "/v1/backups", { token: rc, headers: { "if-none-match": r1.etag } })).status === 304);
+check("backup rejects wrong code", (await call("GET", "/v1/backups", { token: "A".repeat(30) })).status === 401);
+check("backup rejects share token", (await call("GET", "/v1/backups", { token: owner })).status === 401);
+const fast = await call("PUT", "/v1/backups", { token: rc, body: { data, baseVersion: 1 } });
+check("backup write throttled", fast.status === 429, JSON.stringify(fast));
+console.log("     (waiting out the 10 s write throttle)");
+await new Promise((r) => setTimeout(r, 10_500));
+check("backup rejects stale baseVersion", (await call("PUT", "/v1/backups", { token: rc, body: { data, baseVersion: 0 } })).status === 409);
+check("backup rejects non-dayrise data", (await call("PUT", "/v1/backups", { token: rc, body: { data: { app: "other" } } })).status === 400);
+check("backup rejects oversized data", (await call("PUT", "/v1/backups", { token: rc, body: { data: { app: "dayrise", blob: "x".repeat(1100 * 1024) } } })).status === 413);
+const w2 = await call("PUT", "/v1/backups", { token: rc, body: { data } });
+check("forced write without baseVersion", w2.status === 200 && w2.data.version === 2, JSON.stringify(w2));
+check("delete backup", (await call("DELETE", "/v1/backups", { token: rc })).status === 204);
+check("deleted backup is gone", (await call("GET", "/v1/backups", { token: rc })).status === 401);
+
 check("invite page renders", (await fetch(`${base}/j/${rotated.data.code}`)).status === 200);
 check("unknown route is 404", (await call("GET", "/v1/nope")).status === 404);
 

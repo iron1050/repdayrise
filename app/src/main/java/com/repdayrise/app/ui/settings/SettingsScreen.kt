@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.CloudUpload
 import android.widget.Toast
 import com.repdayrise.app.data.BackupException
 import com.repdayrise.app.data.BackupSummary
@@ -110,6 +111,9 @@ import java.time.LocalDate
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val settings: StateFlow<AppSettings> = container.settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+
+    val cloud = container.cloud
+    val cloudState = container.cloud.state
 
     val healthAvailable: Boolean get() = container.health.isAvailable
     val allHealthPermissions: Set<String> get() = container.health.allPermissions
@@ -187,6 +191,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
     LaunchedEffect(Unit) { if (viewModel.healthAvailable) healthCount = viewModel.healthGranted() }
     val scope = rememberCoroutineScope()
     var pendingImport by remember { mutableStateOf<Pair<String, BackupSummary>?>(null) }
+    val cloudState by viewModel.cloudState.collectAsStateWithLifecycle()
+    var showCloud by remember { mutableStateOf(false) }
+    if (showCloud) CloudBackupDialog(cloudState, viewModel.cloud) { showCloud = false }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch { Toast.makeText(context, viewModel.exportTo(uri), Toast.LENGTH_SHORT).show() }
     }
@@ -307,6 +314,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
         }
 
         Group("Data") {
+            BeadRow("Cloud backup", cloudBackupSubtitle(cloudState), Icons.Rounded.CloudUpload, Color(0xFF7C6CF0),
+                onClick = { showCloud = true })
             BeadRow("Export backup", "Save your habits and history to a file", Icons.Rounded.FileUpload, Color(0xFF4FA3E3),
                 onClick = { exportLauncher.launch("dayrise-${LocalDate.now()}.json") })
             BeadRow("Import backup", "Replace what's here with a saved file", Icons.Rounded.FileDownload, Color(0xFF4CC28E),
@@ -318,7 +327,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenHallO
                 Text("Dayrise for Android", style = MaterialTheme.typography.titleSmall)
                 Text("Version ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0"} · Android ${Build.VERSION.RELEASE}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
-                Text("Complete your habits and watch the sun rise. Everything stays on your device unless you choose to share your list with a partner.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Complete your habits and watch the sun rise. Everything stays on your device unless you turn on cloud backup or share your list with a partner.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
