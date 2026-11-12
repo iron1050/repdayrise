@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone-to-phone recovery code transfer (see NfcTransfer). Only answers while the phone is unlocked. -->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/nfc_transfer_description"
+    android:requireDeviceUnlock="true">
+    <aid-group android:category="other" android:description="@string/nfc_transfer_description">
+        <aid-filter android:name="F044415952495345" />
+    </aid-group>
+</host-apdu-service>

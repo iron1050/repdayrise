@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Tapping two phones together to move a cloud backup's recovery code. Optional. -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
 
     <!-- Health Connect -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
@@ -55,6 +59,19 @@
                 <data android:scheme="dayrise" android:host="join" />
             </intent-filter>
         </activity>
+
+        <!-- Hands this phone's recovery code to another phone over NFC, only while its send screen is open. -->
+        <service
+            android:name=".data.cloud.NfcTransferService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/nfc_transfer_service" />
+        </service>
 
         <!-- Launcher icons: exactly one alias is enabled at a time (see AppContainer.applyAppIcon) -->
         <activity-alias

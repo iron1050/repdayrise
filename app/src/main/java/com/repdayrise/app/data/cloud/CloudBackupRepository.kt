@@ -183,13 +183,17 @@ class CloudBackupRepository(
     }
 
     /** Fetches and checks the backup behind [rawCode] (or this phone's own code) without changing anything. */
-    suspend fun preview(rawCode: String = _state.value.code): Result<RestorePreview> {
+    suspend fun preview(rawCode: String = _state.value.code, server: String = ""): Result<RestorePreview> {
         var result: RestorePreview? = null
         return attempt {
             val code = formatRecoveryCode(rawCode)
             if (code.count { it.isLetterOrDigit() } != RECOVERY_LENGTH) throw IllegalStateException("A recovery code has $RECOVERY_LENGTH letters and numbers.")
             val own = code == _state.value.code && _state.value.serverUrl.isNotBlank()
-            val base = if (own) _state.value.serverUrl else requireServer()
+            val base = when {
+                server.isNotBlank() -> server // handed over by the other phone, see NfcTransfer
+                own -> _state.value.serverUrl
+                else -> requireServer()
+            }
             val response = try {
                 api.read(base, code)
             } catch (e: ApiException) {
@@ -199,6 +203,9 @@ class CloudBackupRepository(
             result = RestorePreview(backup.inspect(json), response.updatedAt, base, code, response.version, json)
         }.map { result!! }
     }
+
+    /** What a tap hands to another phone. */
+    fun nfcPayload(): NfcPayload? = _state.value.takeIf { it.enabled && !it.gone }?.let { NfcPayload(it.code, it.serverUrl) }
 
     /** Replaces this phone's data with [preview] and keeps backing up to that code from now on. */
     suspend fun restore(preview: RestorePreview): Result<Unit> = attempt {

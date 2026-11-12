@@ -1,6 +1,11 @@
 package com.repdayrise.app.ui.settings
 
+import android.app.Activity
 import android.content.ClipData
+import android.content.ContextWrapper
+import android.content.pm.PackageManager
+import android.nfc.NfcAdapter
+import android.provider.Settings
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
@@ -24,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,8 +42,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.repdayrise.app.data.cloud.CloudBackupRepository
 import com.repdayrise.app.data.cloud.CloudBackupState
+import com.repdayrise.app.data.cloud.NfcTransfer
 import com.repdayrise.app.data.cloud.RestorePreview
 import com.repdayrise.app.data.model.countLabel
 import kotlinx.coroutines.launch
@@ -48,6 +56,8 @@ private sealed interface CloudStep {
     data object EnterCode : CloudStep
     data class ConfirmRestore(val preview: RestorePreview) : CloudStep
     data object ConfirmOff : CloudStep
+    data object NfcSend : CloudStep
+    data object NfcReceive : CloudStep
 }
 
 /** One-line status for the Settings row. */
@@ -64,6 +74,8 @@ fun CloudBackupDialog(state: CloudBackupState, cloud: CloudBackupRepository, onD
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf<CloudStep>(CloudStep.Main) }
     var busy by remember { mutableStateOf(false) }
+    val nfc = remember { NfcAdapter.getDefaultAdapter(context) }
+    val canSendByTap = nfc != null && context.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
 
     fun perform(block: suspend () -> Result<*>, onSuccess: () -> Unit = {}) {
         busy = true
@@ -101,6 +113,7 @@ fun CloudBackupDialog(state: CloudBackupState, cloud: CloudBackupRepository, onD
                     when {
                         !state.enabled -> {
                             DialogAction("Turn on", !busy) { perform({ cloud.turnOn() }) { step = CloudStep.ShowCode } }
+                            if (nfc != null) DialogAction("Restore by tapping your other phone", !busy) { step = CloudStep.NfcReceive }
                             DialogAction("Restore with a recovery code", !busy) { step = CloudStep.EnterCode }
                         }
                         state.conflict -> {
@@ -116,6 +129,7 @@ fun CloudBackupDialog(state: CloudBackupState, cloud: CloudBackupRepository, onD
                         else -> {
                             if (!state.gone) DialogAction("Back up now", !busy) { perform({ cloud.backUpNow() }) { toast(context, "Backed up") } }
                             if (!state.gone) DialogAction("Show recovery code", true) { step = CloudStep.ShowCode }
+                            if (!state.gone && canSendByTap) DialogAction("Send to a phone by tapping", true) { step = CloudStep.NfcSend }
                             DialogAction("Turn off", !busy) { step = CloudStep.ConfirmOff }
                         }
                     }
@@ -201,6 +215,85 @@ fun CloudBackupDialog(state: CloudBackupState, cloud: CloudBackupRepository, onD
             )
         }
 
+        CloudStep.NfcSend -> {
+            // Only answer taps while this screen is open, and for a minute at most.
+            DisposableEffect(Unit) {
+                val payload = cloud.nfcPayload()
+                if (payload != null) {
+                    NfcTransfer.offer(payload) {
+                        scope.launch {
+                            toast(context, "Sent to the other phone")
+                            step = CloudStep.Main
+                        }
+                    }
+                }
+                onDispose { NfcTransfer.withdraw() }
+            }
+            AlertDialog(
+                onDismissRequest = { step = CloudStep.Main },
+                title = { Text("Tap your other phone") },
+                text = {
+                    Column {
+                        NfcOffNotice(nfc, context)
+                        Text(
+                            "On the other phone, open Dayrise, go to Settings, Cloud backup, Restore by tapping your other phone. " +
+                                "Then hold the two phones back to back. Keep this phone unlocked.",
+                        )
+                    }
+                },
+                confirmButton = { TextButton(onClick = { step = CloudStep.Main }) { Text("Cancel") } },
+            )
+        }
+
+        CloudStep.NfcReceive -> {
+            var status by remember { mutableStateOf<String?>(null) }
+            DisposableEffect(Unit) {
+                val activity = context.findActivity()
+                if (activity != null && nfc != null) {
+                    nfc.enableReaderMode(
+                        activity,
+                        { tag ->
+                            // Binder thread: the read blocks for the few milliseconds the exchange takes.
+                            val result = runCatching { NfcTransfer.read(tag) }
+                            scope.launch {
+                                result
+                                    .onSuccess { payload ->
+                                        status = "Got it. Checking the backup…"
+                                        cloud.preview(payload.code, payload.server)
+                                            .onSuccess { step = CloudStep.ConfirmRestore(it) }
+                                            .onFailure { status = it.message }
+                                    }
+                                    .onFailure {
+                                        status = (it as? NfcTransfer.TransferException)?.message ?: "Couldn't read the other phone. Hold them still and try again."
+                                    }
+                            }
+                        },
+                        NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+                        null,
+                    )
+                }
+                onDispose { if (activity != null) nfc?.disableReaderMode(activity) }
+            }
+            AlertDialog(
+                onDismissRequest = { step = CloudStep.Main },
+                title = { Text("Tap your other phone") },
+                text = {
+                    Column {
+                        NfcOffNotice(nfc, context)
+                        Text(
+                            "On the phone that has your habits, open Settings, Cloud backup, Send to a phone by tapping. " +
+                                "Then hold the two phones back to back.",
+                        )
+                        status?.let {
+                            Spacer(Modifier.height(12.dp))
+                            Text(it, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { step = CloudStep.Main }) { Text("Cancel") } },
+            )
+        }
+
         CloudStep.ConfirmOff -> {
             var delete by remember { mutableStateOf(true) }
             AlertDialog(
@@ -225,6 +318,26 @@ fun CloudBackupDialog(state: CloudBackupState, cloud: CloudBackupRepository, onD
             )
         }
     }
+}
+
+@Composable
+private fun NfcOffNotice(nfc: NfcAdapter?, context: Context) {
+    var enabled by remember { mutableStateOf(nfc?.isEnabled ?: true) }
+    // Re-check when the person comes back from the system NFC settings.
+    LifecycleResumeEffect(nfc) {
+        enabled = nfc?.isEnabled ?: true
+        onPauseOrDispose { }
+    }
+    if (enabled) return
+    Text("NFC is off on this phone.", color = MaterialTheme.colorScheme.error)
+    TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }) { Text("Turn on NFC") }
+    Spacer(Modifier.height(8.dp))
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable
