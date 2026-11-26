@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Samsung monotone (lock screen) info, referenced by the samsung.appwidget.monotone.info meta-data.
+  The lock screen widget row is one cell tall, so 1x1 (tiny) and 2x1 (small) are the only sizes.
+  Don't set allowMultipleSizes: with it the picker collapses the sizes into a single entry.
+-->
+<samsung-appwidget-info xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:initialLayoutSmall="@layout/glance_default_loading_layout"
+    app:initialLayoutTiny="@layout/glance_default_loading_layout"
+    app:previewLayoutSmall="@layout/lock_widget_preview"
+    app:previewLayoutTiny="@layout/lock_widget_preview_tiny"
+    app:targetHost="6"
+    app:widgetSize="3" />

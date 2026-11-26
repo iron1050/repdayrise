@@ -169,6 +169,21 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/habits_widget_info" />
         </receiver>
+        <!-- One UI lock screen widget: Samsung-specific category + monotone info, mirroring Samsung's own widgets. -->
+        <receiver
+            android:name=".widget.LockWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_lock_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lock_widget_info" />
+            <meta-data
+                android:name="samsung.appwidget.monotone.info"
+                android:resource="@xml/lock_widget_info_oneui" />
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
