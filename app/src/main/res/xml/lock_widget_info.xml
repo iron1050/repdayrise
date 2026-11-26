@@ -11,7 +11,6 @@
     android:widgetCategory="0x2000"
     app:previewLayoutSmall="@layout/lock_widget_preview"
     app:previewLayoutTiny="@layout/lock_widget_preview_tiny"
-    app:previewLayoutMedium="@layout/lock_widget_preview_medium"
     app:targetHost="6"
-    app:widgetSize="11"
+    app:widgetSize="3"
     app:widgetStyle="2" />
