@@ -17,4 +17,6 @@
     <attr name="previewLayoutTiny" format="reference" />
     <attr name="initialLayoutSmall" format="reference" />
     <attr name="previewLayoutSmall" format="reference" />
+    <attr name="initialLayoutMedium" format="reference" />
+    <attr name="previewLayoutMedium" format="reference" />
 </resources>

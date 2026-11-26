@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static sunrise arc for the lock widget picker preview (62% progress). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="56dp"
+    android:viewportWidth="100"
+    android:viewportHeight="56">
+    <path
+        android:pathData="M6,52 H94"
+        android:strokeWidth="2.4"
+        android:strokeAlpha="0.4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M12,52 A38,38 0 0 1 88,52"
+        android:strokeWidth="4"
+        android:strokeAlpha="0.2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M12,52 A38,38 0 0 1 64,16.7"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillAlpha="0.16"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M64,16.7 m-11.5,0 a11.5,11.5 0 1,0 23,0 a11.5,11.5 0 1,0 -23,0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M64,16.7 m-5.5,0 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0" />
+</vector>

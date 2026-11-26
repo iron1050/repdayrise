@@ -4,7 +4,9 @@
     app:allowMultipleSizes="true"
     app:initialLayoutSmall="@layout/glance_default_loading_layout"
     app:initialLayoutTiny="@layout/glance_default_loading_layout"
+    app:initialLayoutMedium="@layout/glance_default_loading_layout"
     app:previewLayoutSmall="@layout/lock_widget_preview"
     app:previewLayoutTiny="@layout/lock_widget_preview_tiny"
+    app:previewLayoutMedium="@layout/lock_widget_preview_medium"
     app:targetHost="6"
-    app:widgetSize="3" />
+    app:widgetSize="11" />
