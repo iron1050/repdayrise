@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Samsung monotone (lock screen) info, referenced by the samsung.appwidget.monotone.info meta-data. -->
+<samsung-appwidget-info xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:allowMultipleSizes="true"
+    app:initialLayoutSmall="@layout/glance_default_loading_layout"
+    app:initialLayoutTiny="@layout/glance_default_loading_layout"
+    app:previewLayoutSmall="@layout/lock_widget_preview"
+    app:previewLayoutTiny="@layout/lock_widget_preview_tiny"
+    app:targetHost="6"
+    app:widgetSize="3" />

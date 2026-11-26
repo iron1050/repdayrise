@@ -81,6 +81,7 @@ class WidgetUpdater(private val context: Context) {
         runLogged("Dashboard") { DashboardWidget().updateAll(context) }
         runLogged("Habits") { HabitsWidget().updateAll(context) }
         runLogged("Rhythm") { RhythmWidget().updateAll(context) }
+        runLogged("Lock") { LockWidget().updateAll(context) }
     }
 
     /** Publishes generated previews to the widget picker (Android 15+). Rate limited by the OS, so callers guard it. */

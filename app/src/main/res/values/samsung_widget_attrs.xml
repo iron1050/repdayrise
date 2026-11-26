@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Samsung One UI widget-host attributes. One UI's AppWidget service reads these by name from the
+  app namespace (res-auto), the same way Samsung's own Weather / Clock / Calculator widgets declare
+  them. Reverse-engineered from One UI 9 (Android 17) system apps:
+    widgetSize / previewSize  flags: 1 = tiny (1x1), 2 = small (2x1), 4 = wide small, 8 = medium (2x2), 16 = large
+    widgetStyle               1 = colorful (home / cover), 2 = monotone (lock screen)
+    targetHost                host flags; Samsung's lock-screen complications use 6
+-->
+<resources>
+    <attr name="targetHost" format="integer" />
+    <attr name="widgetSize" format="integer" />
+    <attr name="previewSize" format="integer" />
+    <attr name="widgetStyle" format="integer" />
+    <attr name="allowMultipleSizes" format="boolean" />
+    <attr name="initialLayoutTiny" format="reference" />
+    <attr name="previewLayoutTiny" format="reference" />
+    <attr name="initialLayoutSmall" format="reference" />
+    <attr name="previewLayoutSmall" format="reference" />
+</resources>

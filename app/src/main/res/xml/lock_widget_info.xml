@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One UI lock screen widget. widgetCategory 0x2000 is Samsung's lock screen category (not in AOSP). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:description="@string/widget_lock_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewLayout="@layout/lock_widget_preview"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="0x2000"
+    app:previewLayoutSmall="@layout/lock_widget_preview"
+    app:previewLayoutTiny="@layout/lock_widget_preview_tiny"
+    app:targetHost="6"
+    app:widgetSize="3"
+    app:widgetStyle="2" />
